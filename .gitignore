@@ -1,0 +1,14 @@
+# Игнорируем папку виртуального окружения
+venv/
+nb_venv/
+pc_venv/
+
+# Кэш Python
+__pycache__/
+*.pyc
+
+# Файлы с секретами (токены, пароли)
+.env
+.secrets
+src/data/
+src/backups/
