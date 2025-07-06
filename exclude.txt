@@ -1,13 +1,9 @@
 venv/
 nb_venv/
 pc_venv/
-
 docs/
-
 __pycache__/
 *.pyc
-
 .env
 .secrets
-src/data/
-src/backups/
+backups/
