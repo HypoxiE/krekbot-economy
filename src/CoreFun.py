@@ -18,7 +18,7 @@ import re
 
 from constants.rimagochi_constants import *
 from constants.global_constants import *
-from data.TOKENS import TOKENS
+from data.secrets.TOKENS import TOKENS
 from database.db_classes import all_data as DataBaseClasses
 from managers.DataBaseManager import DatabaseManager
 from database.settings import config

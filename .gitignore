@@ -9,5 +9,5 @@ __pycache__/
 
 .env
 .secrets
-src/data/
+src/data/secrets/
 src/backups/
