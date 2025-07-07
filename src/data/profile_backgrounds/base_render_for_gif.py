@@ -8,7 +8,9 @@ def render(data, design):
 	scale = design.scale
 
 	pillow_frames = []
-	frames = imageio.mimread(f"src/data/profile_backgrounds/{design.file_name}")
+	background_gif = Image.open(f"src/data/profile_backgrounds/{design.file_name}")
+	frames = [frame.convert("RGBA").copy() for frame in ImageSequence.Iterator(background_gif)]
+	#frames = imageio.mimread(f"src/data/profile_backgrounds/{design.file_name}")
 
 	#затемнение фона
 	# Параметры
@@ -140,9 +142,11 @@ def render(data, design):
 	small_info_pannel_image = info_pannel_image.resize((info_pannel_image.width//scale, info_pannel_image.height//scale), resample=Image.LANCZOS)
 
 	for arr in frames:
-		bg_image = Image.fromarray(arr).convert("RGBA")
+		#bg_image = Image.fromarray(arr).convert("RGBA")
+		bg_image = arr.copy()
 		bg_image.paste(small_blackout_background_image, blackout_background_position, small_blackout_background_image)
-		bg_image.paste(small_avatar, avatar_position, small_avatar)
+		small_avatar_final = small_avatar.copy()
+		bg_image.paste(small_avatar_final, avatar_position, small_avatar_final)
 		bg_image.paste(small_nick_pannel_image, nick_position, small_nick_pannel_image)
 		bg_image.paste(small_progress_bar_image, progress_bar_position, small_progress_bar_image)
 		bg_image.paste(small_info_pannel_image, info_bar_position, small_info_pannel_image)
@@ -151,7 +155,7 @@ def render(data, design):
 		pillow_frames.append(bg_image)
 
 	buffer = BytesIO()
-	pillow_frames[0].save(buffer, save_all=True, append_images=pillow_frames[1:], loop=0, duration=100, format="GIF")
+	pillow_frames[0].save(buffer, save_all=True, append_images=pillow_frames[1:], loop=0, duration=100, format='WEBP')
 	buffer.seek(0)
 
 	return buffer

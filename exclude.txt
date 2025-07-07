@@ -4,7 +4,7 @@ pc_venv/
 docs/
 __pycache__/
 *.pyc
-.git
+.git/
 .env
 .secrets
 secrets/

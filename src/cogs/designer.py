@@ -13,7 +13,7 @@ import random
 import json
 import shutil
 import imageio
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageSequence
 from io import BytesIO
 import textwrap
 from constants.global_constants import *
@@ -121,4 +121,4 @@ class MainDesignerModule(commands.Cog):
 			if design.type == "PNG":
 				await ctx.edit_original_message(file=disnake.File(fp=design.render_profile(data, namespace), filename="profile.png"))
 			elif design.type == "GIF":
-				await ctx.edit_original_message(file=disnake.File(fp=design.render_profile(data, namespace), filename="profile.gif"))
+				await ctx.edit_original_message(file=disnake.File(fp=design.render_profile(data, namespace), filename="profile.webp"))
