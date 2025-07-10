@@ -155,7 +155,7 @@ def render(data, design):
 		pillow_frames.append(bg_image)
 
 	buffer = BytesIO()
-	pillow_frames[0].save(buffer, save_all=True, append_images=pillow_frames[1:], loop=0, duration=100, format='WEBP')
+	pillow_frames[0].save(buffer, save_all=True, append_images=pillow_frames[1:], loop=0, duration=100, quality=95, format='WEBP')
 	buffer.seek(0)
 
 	return buffer
