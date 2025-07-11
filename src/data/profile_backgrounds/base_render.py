@@ -64,7 +64,8 @@ def render(data, design):
 		font = ImageFont.truetype("src/data/fonts/segoeuib.ttf", 24*scale)
 		if len(data['nick']) >= 12:
 			font = ImageFont.truetype("src/data/fonts/segoeuib.ttf", 20*scale)
-			data['nick'].replace("_", " ")
+			if len(data['nick']) > 12:
+				data['nick'].replace("_", " ")
 	except:
 		font = ImageFont.load_default()
 
