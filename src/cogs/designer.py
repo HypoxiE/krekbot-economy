@@ -114,7 +114,7 @@ class MainDesignerModule(commands.Cog):
 			data['user'] = user
 			data['place_in_top'] = user_rank
 			data['crumbs_modify'] = max(0, (bool(await user.in_role(roles = self.sponsors, member = member))+1) + (user.carma / 100)) if ctx.guild is not None else 1
-			data['nick'] = member.display_name if len(member.display_name) < 12 else member.display_name.replace("_", " ")
+			data['nick'] = member.display_name if len(member.display_name) <= 12 else member.display_name.replace("_", " ")
 			data['level'] = self.client.CalculateLevel(user.period_messages, user.period_voice_activity)
 			namespace = globals().copy()
 
