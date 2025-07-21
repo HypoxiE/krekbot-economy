@@ -62,7 +62,7 @@ def render(data, design):
 	# Текст
 	try:
 		font = ImageFont.truetype("src/data/fonts/segoeuib.ttf", 24*scale)
-		if len(data['nick']) >= 12:
+		if len(data['nick']) >= 11:
 			font = ImageFont.truetype("src/data/fonts/segoeuib.ttf", 20*scale)
 			if len(data['nick']) > 12:
 				data['nick'].replace("_", " ")
