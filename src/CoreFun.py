@@ -360,7 +360,6 @@ class AdminBot(AnyBots):
 
 	async def on_ready(self):
 		await super().on_ready(inherited = True)
-		self.UpdatingTournamentData.start() # Удалить обязательно!!!
 
 		if self.task_start:
 			self.VoiceXpAdder.cancel()
@@ -370,6 +369,8 @@ class AdminBot(AnyBots):
 			self.VoiceXpAdder.start()
 			self.CheckDataBase.start()
 			self.UpdatingTournamentData.start()
+		else:
+			self.UpdatingTournamentData.start() # Удалить обязательно!!!
 
 		print(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: KrekFunLoopsBot activated")
 
