@@ -520,7 +520,8 @@ class AdminBot(AnyBots):
 	async def UpdatingTournamentData(self):
 		krekchat = await self.fetch_guild(self.krekchat.id)
 		tournament_channel = await krekchat.fetch_channel(1396785366882582538)
-		msg = await tournament_channel.fetch_message(1396787609891635200)
+		webhooks = await tournament_channel.webhooks()
+		webhook = webhooks[0]
 
 		if not hasattr(self, 'tournament_table_client'):
 			SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
@@ -657,7 +658,7 @@ class AdminBot(AnyBots):
 		embed = disnake.Embed(description = "**Эта таблица обновляется каждый час и может содержать только топ-20 участников.\n\nБолее детальную и актуальную информацию можете найти в [оригинальной таблице](https://docs.google.com/spreadsheets/d/1QkaNYezumeb-QJHSZ3x1vIi5ktf0ooDklYkrP6xSMZc/edit?usp=sharing).**", colour=color)
 		embeds.append(embed)
 
-		await msg.edit("", embeds = embeds)
+		await webhook.edit_message(1400936701131624549, content = "", embeds = embeds)
 
 	@tasks.loop(seconds=60)
 	async def VoiceXpAdder(self):
@@ -757,116 +758,6 @@ async def init_db():
 		await conn.run_sync(DataBaseClasses['base'].metadata.create_all)
 	
 	return DatabaseManager(DataBaseEngine, DataBaseClasses)
-
-# async def db_migration(DB_MANAGER):
-# 	new_DataBase = DB_MANAGER
-# 	DataBase = await old_DatabaseManager.connect("data/fun.db")
-# 	await DataBase.execute("PRAGMA journal_mode=WAL")
-# 	await DataBase.execute("PRAGMA synchronous=NORMAL")
-# 	try:
-# 		async with new_DataBase.engine.begin() as conn:
-# 			await conn.run_sync(new_DataBase.metadata.drop_all)
-# 			await conn.run_sync(new_DataBase.metadata.create_all)
-# 		async with new_DataBase.session() as session:
-# 			users = [DB_MANAGER.model_classes['users'](
-# 					id = userid, crumbs = crumbs, summary_messages = messages, summary_voice_activity = voiceactivity, 
-# 					carma = carma, staff_salary = staffsalary, last_daily_crumbs_date = lastdailycrumbsdate
-# 				)
-# 				for userid, crumbs, messages, voiceactivity, carma, rolesinventory, staffsalary, sellingroles, ownchannels, timedroles, lastdailycrumbsdate\
-# 				in await DataBase.SelectBD('users')
-# 			]
-# 			async with session.begin():
-# 				session.add_all(users)
-
-# 			roles_custom = [DB_MANAGER.model_classes['roles_custom'](
-# 					id = roleid, creator_id = creatorid, cost = cost, renewal_date = renewaldate, renewal_enabled = renewal, date_of_creation = dateofcreation
-# 				)
-# 				for roleid, creatorid, dateofcreation, cost, sales, renewaldate, renewal in await DataBase.SelectBD('selling_roles')
-# 			]
-# 			async with session.begin():
-# 				session.add_all(roles_custom)
-
-# 			received_roles_custom = [DB_MANAGER.model_classes['received_roles_custom'](
-# 					role_id = roleid, user_id = int(user)
-# 				)
-# 				for roleid, creatorid, dateofcreation, cost, sales, renewaldate, renewal in await DataBase.SelectBD('selling_roles')
-# 				for user in sales.split(":")
-# 			]
-# 			async with session.begin():
-# 				session.add_all(received_roles_custom)
-
-# 			roles_prize = [DB_MANAGER.model_classes['roles_prize'](
-# 					id = roleid
-# 				)
-# 				for roleid, surrendered in await DataBase.SelectBD('prize_roles')
-# 			]
-# 			async with session.begin():
-# 				session.add_all(roles_prize)
-
-# 			received_roles_prize = [DB_MANAGER.model_classes['received_roles_prize'](
-# 					role_id = roleid, user_id = int(user)
-# 				)
-# 				for roleid, surrendered in await DataBase.SelectBD('prize_roles')
-# 				for user in surrendered.split(":")
-# 			]
-# 			async with session.begin():
-# 				session.add_all(received_roles_prize)
-
-# 			roles_static = [DB_MANAGER.model_classes['roles_static'](
-# 					id = roleid,
-# 					description = description
-# 				)
-# 				for roleid, description in await DataBase.SelectBD('uncustom_roles')
-# 			]
-# 			async with session.begin():
-# 				session.add_all(roles_static)
-
-# 			transaction_history_crumbs = [DB_MANAGER.model_classes['transaction_history_crumbs'](
-# 					sender_id = sender if sender != 0 else None, 
-# 					recipient_id = recipient if recipient != 0 else None,
-# 					amount = amount, commission_fraction = commission,
-# 					description = comment, transaction_time = transactiontime
-# 				)
-# 				for sender, recipient, amount, commission, comment, transactiontime in await DataBase.SelectBD('history')
-# 			]
-# 			async with session.begin():
-# 				session.add_all(transaction_history_crumbs)
-
-# 			casino_user_account = [DB_MANAGER.model_classes['casino_user_account'](
-# 					id = int(userid), spins_today_count = spinstoday, last_reset_time = lastreset
-# 				)
-# 				for userid, spinstoday, lastreset in await DataBase.SelectBD('casino_limits')
-# 			]
-# 			async with session.begin():
-# 				session.add_all(casino_user_account)
-
-# 			rimagochi_users = [DB_MANAGER.model_classes['rimagochi_users'](
-# 					id = userid, items = json.loads(items), genes = json.loads(genes), wins = wins, settings = json.loads(settings)
-# 				)
-# 				for userid, animals, items, genes, battleslots, wins, settings in await DataBase.SelectBD('rimagochi_users')
-# 				if userid != 920423544691761213 and userid != 1354557962168959077
-# 			]
-# 			async with session.begin():
-# 				session.add_all(rimagochi_users)
-
-# 			rimagochi_animals = []
-# 			for userid, animals, items, genes, battleslots, wins, settings in await DataBase.SelectBD('rimagochi_users'):
-# 				rimagochi_animals += [DB_MANAGER.model_classes['rimagochi_animals'](
-# 						id = int(item['id'][:4]), model_animal_id = item['animal_id'], genes = item['genes'], items = item['used_items'], 
-# 						last_feeding_time = item['last_feeding'], first_today_feed_time = item['first_feed_today_time'],
-# 						feed_today_count = item['feed_today'], experience = item['exp'], level = item['level'], wins = item['wins'],
-# 						initial_owner_id = int(item['id'].split("_")[1]), owner_id = userid, in_battle_slots = item['id'] in json.loads(battleslots).keys()
-# 					)
-# 					for key, item in json.loads(animals).items()
-# 				]
-# 			async with session.begin():
-# 				session.add_all(rimagochi_animals)
-
-# 	finally:
-# 		await DataBase.close()
-
-# 	raise Exception("Миграция БД завершена. требуется переименовывание файлов")
-
 
 async def run_bot(bot, token, stop_event):
 	try:

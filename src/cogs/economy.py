@@ -420,7 +420,7 @@ class MainEconomyModule(commands.Cog):
 			return
 		if comment != "Перевод":
 			comment = "Перевод | " + comment
-		if (commission == None) or (not self.me in ctx.author.roles):
+		if (commission == None) or (not self.me in ctx.author.roles) or (ctx.author.id == 515542927158804480):
 			commission = constants['givecrumbscommission']
 		if count <= 0:
 			await error_helper.out(d="Количество крошек должно быть больше 0")
