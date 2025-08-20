@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  economy-discord-bot:
+    build: .
+    image: discord-economy-bot
+    container_name: discord-economy-bot
+    restart: always
+    networks:
+      - postgres-network
+    env_file:
+      - .env
+
+networks:
+  postgres-network:
+    external: true

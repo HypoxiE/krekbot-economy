@@ -18,7 +18,7 @@ import re
 
 from constants.rimagochi_constants import *
 from constants.global_constants import *
-from data.secrets.TOKENS import TOKENS
+from libs.tokens_formatter import TOKENS
 from database.db_classes import all_data as DataBaseClasses
 from managers.DataBaseManager import DatabaseManager
 from database.settings import config
@@ -304,7 +304,7 @@ class AnyBots(commands.Bot):
 			matches = re.findall(pattern, time_str)
 
 			for value, _, unit in matches:
-				time_units[unit] += float(value)
+				time_units[unit] += value
 
 		return FormatedTime(time_units)
 
@@ -358,7 +358,7 @@ class AdminBot(AnyBots):
 		self.task_start = task_start
 		self.stop_event = stop_event
 
-	async def on_ready(self):
+	async def on_ready(self, inherited = True):
 		await super().on_ready(inherited = True)
 
 		if self.task_start:
@@ -391,7 +391,7 @@ class AdminBot(AnyBots):
 	async def check_bt_channel(self):
 		async def moder_dataparser(data: dict):
 			if not 'type' in data.keys():
-				raise json.JSONDecodeError()
+				raise json.JSONDecodeError("Некорректный JSON", '{"type":value}', 0)
 			async with self.DataBaseManager.session() as session:
 				async with session.begin():
 					async with self.DataBaseManager.models['users'] as users_model:
@@ -444,6 +444,8 @@ class AdminBot(AnyBots):
 
 		while True:
 			stopflag = False
+			if not isinstance(bt_channel, disnake.TextChannel):
+				raise ValueError("В bt_channel как-то оказалось не disnake.TextChannel")
 			batch = await bt_channel.history(limit=10, before=last_msg).flatten()
 			for message in batch:
 				msg_stopflag = False
@@ -452,15 +454,15 @@ class AdminBot(AnyBots):
 						msg_stopflag = True
 						break
 				else:
+					data = json.loads(message.content)
 					try:
-						data = json.loads(message.content)
 						result = 0
 						if not 'sender' in data:
-							raise json.JSONDecodeError()
+							raise json.JSONDecodeError("Некорректный JSON", '{"sender":value}', 0)
 						if data['sender'] == "ModBot":
 							result = await moder_dataparser(data)
 						if result:
-							raise json.JSONDecodeError()
+							raise json.JSONDecodeError("Некорерктный JSON", '', 0)
 						await message.add_reaction("✅")
 					except json.JSONDecodeError as e:
 						await message.add_reaction("❎")
@@ -478,18 +480,18 @@ class AdminBot(AnyBots):
 		add_crumbs = (incoming_crumbs * modifier) if incoming_crumbs * modifier >= 0 else 0
 		return add_crumbs
 
-	async def on_message(self, msg):
-		if msg.author.id == 479210801891115009 and msg.content == "botsoff":
-			await msg.reply(embed=disnake.Embed(description=f'Бот отключён', colour=0xff9900))
+	async def on_message(self, message):
+		if message.author.id == 479210801891115009 and message.content == "botsoff":
+			await message.reply(embed=disnake.Embed(description=f'Бот отключён', colour=0xff9900))
 			await self.BotOff()
-		if msg.guild is None:
+		if message.guild is None:
 			return
-		if msg.channel.id == self.bots_talk_protocol_channel_id:
+		if message.channel.id == self.bots_talk_protocol_channel_id:
 			await self.check_bt_channel()
-		if msg.author.bot:
+		if message.author.bot:
 			return
 		crumb_per_word = 1 / 2
-		text = msg.content
+		text = message.content
 		while "  " in text:
 			text = text.replace("  ", " ")
 		add_crumbs = len(text.split(" ")) * crumb_per_word
@@ -497,35 +499,38 @@ class AdminBot(AnyBots):
 		async with self.DataBaseManager.session() as session:
 			async with session.begin():
 				async with self.DataBaseManager.models['users'] as users_model:
-					stmt = self.DataBaseManager.select(users_model).where(users_model.id == msg.author.id)
+					stmt = self.DataBaseManager.select(users_model).where(users_model.id == message.author.id)
 					user = (await session.execute(stmt)).scalars().first()
 
 					if user is None:
-						user = users_model(id = msg.author.id, period_messages = 1, summary_messages = 1, crumbs = (await self.give_crumbs_counter(incoming_crumbs = add_crumbs, sponsor_roles = self.sponsors, member = msg.author)))
+						user = users_model(id = message.author.id, period_messages = 1, summary_messages = 1, crumbs = (await self.give_crumbs_counter(incoming_crumbs = add_crumbs, sponsor_roles = self.sponsors, member = message.author)))
 						session.add(user)
 						period_messages, period_voice_activity = 1, 0
 
 					else:
-						stmt = self.DataBaseManager.update(users_model).where(users_model.id == msg.author.id).values(
+						stmt = self.DataBaseManager.update(users_model).where(users_model.id == message.author.id).values(
 							period_messages = users_model.period_messages + 1,
 							summary_messages = users_model.summary_messages + 1,
-							crumbs = users_model.crumbs + (await self.give_crumbs_counter(incoming_crumbs = add_crumbs, sponsor_roles = self.sponsors, member = msg.author, carma = user.carma))
+							crumbs = users_model.crumbs + (await self.give_crumbs_counter(incoming_crumbs = add_crumbs, sponsor_roles = self.sponsors, member = message.author, carma = user.carma))
 						)
 						await session.execute(stmt)
 						period_messages, period_voice_activity = user.period_messages + 1, user.period_voice_activity
 
-		await self.LevelRolesGiver(msg.author, self.CalculateLevel(period_messages, period_voice_activity))
+		await self.LevelRolesGiver(message.author, self.CalculateLevel(period_messages, period_voice_activity))
 
+	_url_cache = {}
 	@tasks.loop(seconds=3600)
 	async def UpdatingTournamentData(self):
 		krekchat = await self.fetch_guild(self.krekchat.id)
 		tournament_channel = await krekchat.fetch_channel(1396785366882582538)
+		if not isinstance(tournament_channel, disnake.TextChannel):
+			raise
 		webhooks = await tournament_channel.webhooks()
 		webhook = webhooks[0]
 
 		if not hasattr(self, 'tournament_table_client'):
 			SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-			creds = Credentials.from_service_account_file("src/data/secrets/krekbottable-9a40985c56e2.json", scopes=SCOPES)
+			creds = Credentials.from_service_account_file("secrets/krekbottable-9a40985c56e2.json", scopes=SCOPES)
 			self.tournament_table_client = gspread.authorize(creds)
 
 		async def shorten_url_tinyurl(url: str) -> str:
@@ -570,7 +575,7 @@ class AdminBot(AnyBots):
 			def __ge__(self, other):
 				return (self.points, self.cost) >= (other.points, other.cost)
 
-			async def to_str(self, num: int = None):
+			async def to_str(self, num: int | None = None):
 				try:
 					member = await krekchat.fetch_member(int(row.discord_id))
 				except:
@@ -580,6 +585,7 @@ class AdminBot(AnyBots):
 					result = f"**{num}) "
 				else:
 					result = f"**-"
+					num = -2
 
 				result += f"[{self.nick}]("
 				result += f"https://docs.google.com/spreadsheets/d/1QkaNYezumeb-QJHSZ3x1vIi5ktf0ooDklYkrP6xSMZc/edit?gid=0&range=A{num+2}"
@@ -658,7 +664,7 @@ class AdminBot(AnyBots):
 		embed = disnake.Embed(description = "**Эта таблица обновляется каждый час и может содержать только топ-20 участников.\n\nБолее детальную и актуальную информацию можете найти в [оригинальной таблице](https://docs.google.com/spreadsheets/d/1QkaNYezumeb-QJHSZ3x1vIi5ktf0ooDklYkrP6xSMZc/edit?usp=sharing).**", colour=color)
 		embeds.append(embed)
 
-		await webhook.edit_message(1400936701131624549, content = "", embeds = embeds)
+		await webhook.edit_message(1405594708016889909, content = "", embeds = embeds)
 
 	@tasks.loop(seconds=60)
 	async def VoiceXpAdder(self):
@@ -666,9 +672,12 @@ class AdminBot(AnyBots):
 			channels = await self.krekchat.fetch_channels()
 			async with self.DataBaseManager.session() as session:
 				for channel in channels:
+
+					channel = self.get_channel(channel.id)
+
 					if (not isinstance(channel, disnake.VoiceChannel)) or channel.id == 1250314784914669598:
 						continue
-					channel = self.get_channel(channel.id)
+
 					for member in channel.members:
 						if member.bot:
 							continue
@@ -737,6 +746,9 @@ class AdminBot(AnyBots):
 			backup_file = await self.DataBaseManager.pg_dump()
 			krekchat = await self.fetch_guild(self.krekchat.id)
 			backups_channel = await krekchat.fetch_channel(self.databases_backups_channel_id)
+			if not isinstance(backups_channel, disnake.TextChannel):
+				raise ValueError("backups_channel is not disnake.TextChannel")
+			
 			if "Backup failed" in backup_file:
 				await backups_channel.send(content=backup_file)
 			else:
@@ -816,13 +828,15 @@ async def main():
 	except Exception as e:
 		print(f"Произошла критическая ошибка: {e}")
 	finally:
-		await admin_bot.BotOff()
+		if admin_bot is not None:
+			await admin_bot.BotOff()
 
 		for bot in all_bots:
 			if not bot.is_closed():
 				await bot.close()
 
-		await DataBase.close()
+		if DataBase is not None:
+			await DataBase.close()
 
 		current_task = asyncio.current_task()
 		pending = [t for t in asyncio.all_tasks() if t is not current_task and not t.done()]

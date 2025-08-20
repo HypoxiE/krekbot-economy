@@ -16,7 +16,7 @@ import json
 import re
 import shutil
 from constants.global_constants import *
-from data.secrets.TOKENS import TOKENS
+from libs.tokens_formatter import TOKENS
 
 import CoreFun
 
@@ -46,7 +46,6 @@ async def main():
 
 		'''
 		
-
 		sup_bot = CoreFun.AdminBot(DataBase, stop_event, task_start = False)
 		all_bots = [sup_bot]
 
@@ -78,7 +77,8 @@ async def main():
 			if not bot.is_closed():
 				await bot.close()
 
-		await DataBase.close()
+		if DataBase is not None:
+			await DataBase.close()
 
 if __name__ == "__main__":
 	asyncio.run(main())
