@@ -113,19 +113,19 @@ rimagochi_capsules = {
 			{"rarity": rimagochi_rarity[36], "chance": rimagochi_rarity[36]["standart_chance"]},
 		],
 	},
-	52: {
-		'id': 52,
-		'name': 'аномальный саркофаг криптосна',
-		'cost': 3000,
-		'chances': [
-			{"rarity": rimagochi_rarity[31], "chance": 0.001},
-			{"rarity": rimagochi_rarity[37], "chance": 0.04},
-			{"rarity": rimagochi_rarity[32], "chance": 0.02},
-			{"rarity": rimagochi_rarity[33], "chance": 0.2},
-			{"rarity": rimagochi_rarity[34], "chance": 0.3},
-			{"rarity": rimagochi_rarity[35], "chance": 0.439},
-		],
-	},
+	# 52: {
+	# 	'id': 52,
+	# 	'name': 'аномальный саркофаг криптосна',
+	# 	'cost': 3000,
+	# 	'chances': [
+	# 		{"rarity": rimagochi_rarity[31], "chance": 0.001},
+	# 		{"rarity": rimagochi_rarity[37], "chance": 0.04},
+	# 		{"rarity": rimagochi_rarity[32], "chance": 0.02},
+	# 		{"rarity": rimagochi_rarity[33], "chance": 0.2},
+	# 		{"rarity": rimagochi_rarity[34], "chance": 0.3},
+	# 		{"rarity": rimagochi_rarity[35], "chance": 0.439},
+	# 	],
+	# },
 }
 rimagochi_animals = {
 	261: {

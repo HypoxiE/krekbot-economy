@@ -1,3 +1,4 @@
+import logging
 import disnake
 from disnake.ext import commands
 from disnake.ext import tasks
@@ -32,7 +33,7 @@ class MainDesignerModule(commands.Cog):
 		self.krekchat = await self.client.fetch_guild(constants["krekchat"])
 		self.sponsors = [disnake.utils.get(self.krekchat.roles, id=i) for i in constants["sponsors"]]
 		self.me = disnake.utils.get(self.krekchat.roles, id=constants["me"])
-		print(f'KrekFunBot designer module activated')
+		logging.info(f'KrekFunBot designer module activated')
 
 	@commands.slash_command(name = "профиль", description="Ваш профиль на сервере")
 	async def Profile(self, ctx: disnake.AppCmdInter,
@@ -49,7 +50,8 @@ class MainDesignerModule(commands.Cog):
 					user = await session.get(users_model, member.id)
 
 					if user is None:
-						await self.client.ErrorOutHelper(send_function = ctx.edit_original_message).out(n="Ошибка профиля", d=f"{'Вас' if member == ctx.author else 'Этого пользователя'} пока нет в базе данных{', напишите хотя бы одно сообщение' if member == ctx.author else ''}")
+						embed = self.client.ErrEmbed(title="Ошибка профиля", description=f"{'Вас' if member == ctx.author else 'Этого пользователя'} пока нет в базе данных{', напишите хотя бы одно сообщение' if member == ctx.author else ''}")
+						await ctx.edit_original_message(embed=embed)
 						return
 
 					rating = users_model.period_messages + (users_model.period_voice_activity / 180.0)
@@ -78,7 +80,7 @@ class MainDesignerModule(commands.Cog):
 						design = design.design
 
 		if old_style:
-			embed = disnake.Embed(title=f"Профиль **{member.display_name}**", description=f'')
+			embed = self.client.InfoEmbed(title=f"Профиль **{member.display_name}**", description=f'')
 
 			embed.colour = 0x2F3136
 			embed.set_thumbnail(url=member.avatar)
@@ -103,7 +105,8 @@ class MainDesignerModule(commands.Cog):
 			data = {}
 
 			if design.render_profile_code is None:
-				await self.client.ErrorOutHelper(send_function = ctx.edit_original_message).out(n="Ошибка профиля", d=f"Для этой темы профиля не определена функция render. Свяжитесь с разработчиком для решения этой проблемы")
+				embed = self.client.ErrEmbed(title="Ошибка профиля", description=f"Для этой темы профиля не определена функция render. Свяжитесь с разработчиком для решения этой проблемы")
+				await ctx.edit_original_message(embed=embed)
 				return
 
 			avatar_asset = member.avatar or member.default_avatar

@@ -37,11 +37,15 @@ class MainAdminModule(commands.Cog):
 
 	@commands.slash_command(name="bot_fun_off")
 	async def BotFunOff(self, ctx: disnake.ApplicationCommandInteraction):
+		if isinstance(ctx.author, disnake.User) or ctx.guild is None:
+			await ctx.send(embed=self.client.ErrEmbed(description=f'Не допустимо в личных сообщениях'), ephemeral=True)
+			return
+		
 		if self.me in ctx.author.roles:
-			await ctx.send(embed=disnake.Embed(description=f'Бот отключён', colour=0xff9900), ephemeral=True)
+			await ctx.send(embed=self.client.InfoEmbed(description=f'Бот отключён'), ephemeral=True)
 			await self.client.BotOff()
 		else:
-			await ctx.send(embed=disnake.Embed(description=f'Не допустимо', colour=0xff9900), ephemeral=True)
+			await ctx.send(embed=self.client.ErrEmbed(description=f'Не допустимо'), ephemeral=True)
 
 
 	@commands.slash_command(name="зарегистрировать_призовую_роль")
@@ -49,7 +53,7 @@ class MainAdminModule(commands.Cog):
 		await ctx.response.defer(ephemeral=True)
 		if not self.me in ctx.author.roles:
 			await ctx.edit_original_message(
-				embed=disnake.Embed(description=f'Эта команда доступна только администратору', colour=0x2F3136))
+				embed=self.client.ErrEmbed(description=f'Эта команда доступна только администратору'))
 			return
 
 		async with self.DataBaseManager.session() as session:
@@ -60,9 +64,9 @@ class MainAdminModule(commands.Cog):
 					if role_prize is None:
 						prize_role = roles_prize_model(id = role.id)
 						session.add(prize_role)
-						await ctx.edit_original_message(embed=disnake.Embed(description=f'Теперь роль {role.mention} зарегистрирована!',colour=0x2F3136))
+						await ctx.edit_original_message(embed=self.client.InfoEmbed(description=f'Теперь роль {role.mention} зарегистрирована!'))
 					else:
-						await ctx.edit_original_message(embed=disnake.Embed(description=f'Эта роль уже зарегистрирована!',colour=0x2F3136))
+						await ctx.edit_original_message(embed=self.client.ErrEmbed(description=f'Эта роль уже зарегистрирована!'))
 		
 
 
@@ -70,7 +74,7 @@ class MainAdminModule(commands.Cog):
 	async def GiveAPrizeRoleSlash(self, ctx, role: disnake.Role, member: disnake.Member):
 		await ctx.response.defer(ephemeral=True)
 		if not self.me in ctx.author.roles:
-			await ctx.edit_original_message(embed=disnake.Embed(description=f'Эта команда доступна только администратору', colour=0x2F3136))
+			await ctx.edit_original_message(embed=self.client.ErrEmbed(description=f'Эта команда доступна только администратору'))
 			return
 
 		async with self.DataBaseManager.session() as session:
@@ -81,7 +85,7 @@ class MainAdminModule(commands.Cog):
 					stmt = self.DataBaseManager.select(roles_prize_model).where(roles_prize_model.id == role.id)
 					role_prize = (await session.execute(stmt)).scalars().first()
 					if role_prize is None:
-						await ctx.edit_original_message(embed=disnake.Embed(description=f'Данная роль не зарегистрирована как призовая', colour=0x2F3136))
+						await ctx.edit_original_message(embed=self.client.ErrEmbed(description=f'Данная роль не зарегистрирована как призовая'))
 						return 1
 
 				async with self.DataBaseManager.models['received_roles_prize'] as received_roles_prize_model:
@@ -91,13 +95,13 @@ class MainAdminModule(commands.Cog):
 					)
 					received_roles_prize = (await session.execute(stmt)).scalars().first()
 					if not received_roles_prize is None:
-						await ctx.edit_original_message(embed=disnake.Embed(description=f'У {member.mention} уже есть роль {role.mention}', colour=0x2F3136))
+						await ctx.edit_original_message(embed=self.client.ErrEmbed(description=f'У {member.mention} уже есть роль {role.mention}'))
 						return 1
 
 					received_roles_prize = received_roles_prize_model(role_id = role.id, user_id = member.id)
 					session.add(received_roles_prize)
 
-		embed = disnake.Embed(description=f'Роль {role.mention} успешно передана {member.mention}!', colour=0x2F3136)
+		embed = self.client.InfoEmbed(description=f'Роль {role.mention} успешно передана {member.mention}!')
 		await member.add_roles(role)
 		await ctx.edit_original_message(embed=embed)
 
@@ -106,7 +110,7 @@ class MainAdminModule(commands.Cog):
 	async def TakeAwayAPrizeRoleSlash(self, ctx, role: disnake.Role, member: disnake.Member):
 		await ctx.response.defer(ephemeral=True)
 		if not self.me in ctx.author.roles:
-			await ctx.edit_original_message(embed=disnake.Embed(description=f'Эта команда доступна только администратору', colour=0x2F3136))
+			await ctx.edit_original_message(embed=self.client.ErrEmbed(description=f'Эта команда доступна только администратору'))
 			return
 
 		async with self.DataBaseManager.session() as session:
@@ -118,32 +122,36 @@ class MainAdminModule(commands.Cog):
 					).with_for_update()
 					user_role = (await session.execute(stmt)).scalars().first()
 					if user_role is None:
-						await ctx.edit_original_message(embed=disnake.Embed(description=f'Данный пользователь не связан с этой ролью', colour=0x2F3136))
+						await ctx.edit_original_message(embed=self.client.ErrEmbed(description=f'Данный пользователь не связан с этой ролью'))
 						return
 
 					await session.delete(user_role)
-		embed = disnake.Embed(description=f'Роль {role.mention} удалена из инвентаря {member.mention}!', colour=0x2F3136)
+		embed = self.client.InfoEmbed(description=f'Роль {role.mention} удалена из инвентаря {member.mention}!')
 		await member.remove_roles(role)
 		await ctx.edit_original_message(embed=embed)
 
 
 	@commands.slash_command(name="удалить_роль")
 	async def DeleteRoleSlash(self, ctx: disnake.AppCmdInter, roleid: str):
+		if isinstance(ctx.author, disnake.User) or ctx.guild is None:
+			await ctx.send(embed=self.client.ErrEmbed(description=f'Не допустимо в личных сообщениях'), ephemeral=True)
+			return
+		
 		if not self.me in ctx.author.roles:
-			await ctx.send(embed=disnake.Embed(description=f'Эта команда доступна только администратору', colour=0x2F3136))
+			await ctx.send(embed=self.client.ErrEmbed(description=f'Эта команда доступна только администратору'))
 			return
 		try:
 			res = await self.client.DeleteRole(int(roleid))
-			await ctx.send(embed=disnake.Embed(description=f'{res[1]}', colour=0xff9900), ephemeral=True)
+			await ctx.send(embed=self.client.InfoEmbed(description=f'{res[1]}'), ephemeral=True)
 		except ValueError:
-			await ctx.send(embed=disnake.Embed(description=f'Введён неверный id', colour=0xff9900), ephemeral=True)
+			await ctx.send(embed=self.client.ErrEmbed(description=f'Введён неверный id'), ephemeral=True)
 
 
 	@commands.slash_command(name="установить_описание_роли")
 	async def RoleDescriptoinSetSlash(self, ctx, role: disnake.Role, description: str):
 		await ctx.response.defer(ephemeral=True)
 		if not self.me in ctx.author.roles:
-			await ctx.edit_original_message(embed=disnake.Embed(description=f'Эта команда доступна только администратору', colour=0x2F3136))
+			await ctx.edit_original_message(embed=self.client.ErrEmbed(description=f'Эта команда доступна только администратору'))
 			return
 
 		async with self.DataBaseManager.session() as session:
@@ -158,15 +166,19 @@ class MainAdminModule(commands.Cog):
 						session.add(role)
 					else:
 						role_static.description = description
-		await ctx.edit_original_message(embed=disnake.Embed(description=f'Для роли {role.mention} успешно установлено описание\n```{description}```', colour=0x2F3136))
+		await ctx.edit_original_message(embed=self.client.InfoEmbed(description=f'Для роли {role.mention} успешно установлено описание\n```{description}```'))
 		return
 
 	@commands.slash_command(name = "изменить_параметр")
 	async def ChangeParamSlash(self, ctx: disnake.AppCmdInter, member: disnake.Member, vector: int, parameter: str = commands.Param(description="Какой параметр хотите изменить?",
 																									 name="параметр",
 																									 choices=['крошки', 'сообщения', 'секунды в голосовом канале', 'репутация', 'зарплата'])):
+		if isinstance(ctx.author, disnake.User) or ctx.guild is None:
+			await ctx.send(embed=self.client.ErrEmbed(description=f'Не допустимо в личных сообщениях'), ephemeral=True)
+			return
+		
 		if not self.me in ctx.author.roles:
-			await ctx.edit_original_message(embed=disnake.Embed(description=f'Эта команда доступна только администратору', colour=0x2F3136))
+			await ctx.edit_original_message(embed=self.client.ErrEmbed(description=f'Эта команда доступна только администратору'))
 			return
 
 		async with self.DataBaseManager.session() as session:
@@ -196,16 +208,20 @@ class MainAdminModule(commands.Cog):
 						case 'зарплата':
 							user.staff_salary += vector
 							count = user.staff_salary
-					await ctx.send(embed=disnake.Embed(description=f'Количество {parameter} пользователя {member.mention} успешно изменено до `{count}`', colour=0xff9900), ephemeral=True)
+					await ctx.send(embed=self.client.InfoEmbed(description=f'Количество {parameter} пользователя {member.mention} успешно изменено до `{count}`'), ephemeral=True)
 
 	@commands.slash_command(name = "дать_зверя")
 	async def GiveRimagochiAnimalSlash(self, ctx: disnake.AppCmdInter, member: disnake.Member, animal_id: int):
+		if isinstance(ctx.author, disnake.User) or ctx.guild is None:
+			await ctx.send(embed=self.client.ErrEmbed(description=f'Не допустимо в личных сообщениях'), ephemeral=True)
+			return
+		
 		if not self.me in ctx.author.roles:
-			await ctx.edit_original_message(embed=disnake.Embed(description=f'Эта команда доступна только администратору', colour=0x2F3136))
+			await ctx.edit_original_message(embed=self.client.ErrEmbed(description=f'Эта команда доступна только администратору'))
 			return
 
 		if not animal_id in rimagochi_animals.keys():
-			await ctx.send(embed=disnake.Embed(description=f'Некорректный идентификатор животного', colour=0xff9900), ephemeral=True)
+			await ctx.send(embed=self.client.ErrEmbed(description=f'Некорректный идентификатор животного'), ephemeral=True)
 			return
 
 		async with self.DataBaseManager.session() as session:
@@ -214,12 +230,16 @@ class MainAdminModule(commands.Cog):
 				async with self.DataBaseManager.models['rimagochi_animals'] as rimagochi_animals_model:
 					animal = rimagochi_animals_model(model_animal_id = animal_id, initial_owner_id = ctx.author.id, owner_id = member.id)
 					session.add(animal)
-					await ctx.send(embed=disnake.Embed(description=f'{member.mention} успешно получил `{rimagochi_animals[animal_id]["name"]}`', colour=0xff9900), ephemeral=True)
+					await ctx.send(embed=self.client.InfoEmbed(description=f'{member.mention} успешно получил `{rimagochi_animals[animal_id]["name"]}`'), ephemeral=True)
 
 	@commands.slash_command(name = "удалить_зверя")
 	async def RemoveRimagochiAnimalSlash(self, ctx: disnake.AppCmdInter, inventory_id: int):
+		if isinstance(ctx.author, disnake.User) or ctx.guild is None:
+			await ctx.send(embed=self.client.ErrEmbed(description=f'Не допустимо в личных сообщениях'), ephemeral=True)
+			return
+		
 		if not self.me in ctx.author.roles:
-			await ctx.edit_original_message(embed=disnake.Embed(description=f'Эта команда доступна только администратору', colour=0x2F3136))
+			await ctx.edit_original_message(embed=self.client.ErrEmbed(description=f'Эта команда доступна только администратору'))
 			return
 
 		async with self.DataBaseManager.session() as session:
@@ -231,29 +251,9 @@ class MainAdminModule(commands.Cog):
 					animal = (await session.execute(stmt)).scalars().first()
 
 					if animal is None:
-						await ctx.send(embed=disnake.Embed(description=f'Животного с таким идентификатором не обнаружено', colour=0x2F3136), ephemeral=True)
+						await ctx.send(embed=self.client.ErrEmbed(description=f'Животного с таким идентификатором не обнаружено'), ephemeral=True)
 						return 1
 					else:
 						await session.delete(animal)
-						await ctx.send(embed=disnake.Embed(description=f"<@{animal.owner_id}> лишился `{rimagochi_animals[animal.model_animal_id]['name']}` с id `{inventory_id}`",
-							colour=0xff9900), ephemeral=True)
+						await ctx.send(embed=self.client.InfoEmbed(description=f"<@{animal.owner_id}> лишился `{rimagochi_animals[animal.model_animal_id]['name']}` с id `{inventory_id}`"), ephemeral=True)
 						return 0
-
-	@commands.slash_command(name = "температура")
-	async def RaspberryTemperature(self, ctx: disnake.AppCmdInter):
-		if not self.me in ctx.author.roles:
-			await ctx.send(embed=disnake.Embed(description=f'Эта команда доступна только администратору', colour=0x2F3136))
-			return
-		def redgreen(temper, minimum, maximum):
-			if temper == ((maximum+minimum)/2):
-				return [255, 255, 0]
-			if temper > ((maximum+minimum)/2):
-				return [255, max(0, min(int((1-((temper-minimum)/(maximum-minimum)))*255), 255)), 0]
-			if temper < ((maximum+minimum)/2):
-				return [max(0, min(int(((temper-minimum)/(maximum-minimum))*255), 255)), 255, 0]
-		try:
-			with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
-				temp = f.read()
-		except:
-			temp = "0"
-		await ctx.send(embed=disnake.Embed(description=f"Температура CPU {str(int(temp) / 1000)} °C", colour=disnake.Color.from_rgb(*redgreen(int(temp)/1000, 30, 70))))

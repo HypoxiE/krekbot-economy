@@ -1,4 +1,5 @@
 
+import logging
 import disnake
 from disnake.ext import commands
 from disnake.ext import tasks
@@ -32,7 +33,7 @@ class MainRolesModule(commands.Cog):
 
 	@commands.Cog.listener()
 	async def on_ready(self):
-		print(f'KrekFunBot roles module activated')
+		logging.info(f'KrekFunBot roles module activated')
 		krekchat = await self.client.fetch_guild(constants["krekchat"])
 		self.me = disnake.utils.get(krekchat.roles, id=constants["me"])
 		
@@ -50,9 +51,9 @@ class MainRolesModule(commands.Cog):
 																				description="цвет роли (указывается в hex формате, например: #ff9900)",
 																				name="цвет", default=0xff9900)):
 		await ctx.response.defer()
-		error_helper = self.client.ErrorOutHelper(send_function = ctx.edit_original_message, err_name = "Ошибка создания роли")
-		if ctx.guild is None:
-			await error_helper.out(d="Эта команда не работает в личных сообщениях!")
+		err_embed = self.client.ErrEmbed(err_func = ctx.edit_original_message, title = "Ошибка создания роли")
+		if ctx.guild is None or not isinstance(ctx.author, disnake.Member):
+			await err_embed.send("Эта команда не работает в личных сообщениях!")
 			return
 		async with self.DataBaseManager.session() as session:
 			await self.client.UserUpdate(member = ctx.author, session = session)
@@ -65,7 +66,7 @@ class MainRolesModule(commands.Cog):
 				custom_role = (await session.execute(stmt)).scalars().first()
 
 				if not custom_role is None:
-					await error_helper.out(d=f'Вы уже владеете кастомной ролью')
+					await err_embed.send(f'Вы уже владеете кастомной ролью')
 					return
 
 				krekchat = await self.client.fetch_guild(constants["krekchat"])
@@ -73,24 +74,24 @@ class MainRolesModule(commands.Cog):
 				borderbottom = krekchat.get_role(1221400071908753480)
 
 				if not (100 < cost < 2147483647):
-					await error_helper.out(d=f"Минимальная стоимость: 100 крошек")
+					await err_embed.send(f"Минимальная стоимость: 100 крошек")
 					return
 
 				if disnake.utils.get(ctx.guild.roles, name=name):
-					await error_helper.out(d=f"Роль с таким названием уже есть на сервере")
+					await err_embed.send(f"Роль с таким названием уже есть на сервере")
 					return
 
 				stmt = self.DataBaseManager.select(self.DataBaseManager.func.count()).select_from(roles_custom_model)
 				count = (await session.execute(stmt)).scalars().first()
 				if count >= 50:
-					await error_helper.out(d=f"На сервере сейчас максимальное количество кастомных ролей ({count}), попробуйте позже")
+					await err_embed.send(f"На сервере сейчас максимальное количество кастомных ролей ({count}), попробуйте позже")
 					return
 
 			async with session.begin():
 				stmt = self.DataBaseManager.select(users_model).where(users_model.id == ctx.author.id).with_for_update()
 				user = (await session.execute(stmt)).scalars().first()
 				if user.crumbs < self.costrolecreate:
-					await error_helper.out(d=f"Для создания роли необходимо заплатить {self.costrolecreate} крошек, а у вас есть только {round(user.crumbs)}")
+					await err_embed.send(f"Для создания роли необходимо заплатить {self.costrolecreate} крошек, а у вас есть только {round(user.crumbs)}")
 					return
 
 				role = await ctx.guild.create_role(name=name, colour=colour)
@@ -105,7 +106,7 @@ class MainRolesModule(commands.Cog):
 				await session.flush()
 				received_role_custom = received_roles_custom_model(role_id = role.id, user_id = ctx.author.id)
 				session.add(received_role_custom)
-				await ctx.edit_original_message(embed=disnake.Embed(
+				await ctx.edit_original_message(embed=self.client.InfoEmbed(
 					title=f"Роль успешно создана! Вы можете проверить её статус или поменять настройки через команду /изменить роль",
 					description=f'', colour=0x2F3136))
 
@@ -118,7 +119,8 @@ class MainRolesModule(commands.Cog):
 						  role: disnake.Role = commands.Param(description="О какой роли хотите получить информацию?",
 															  name="роль", default=None)):
 		await ctx.response.defer()
-		error_helper = self.client.ErrorOutHelper(send_function = ctx.edit_original_message, err_name = "Ошибка")
+		err_embed = self.client.ErrEmbed(err_func = ctx.edit_original_message, title = "Ошибка")
+
 		krekchat = await self.client.fetch_guild(constants["krekchat"])
 		roles_custom_model = self.DataBaseManager.model_classes['roles_custom']
 		roles_static_model = self.DataBaseManager.model_classes['roles_static']
@@ -129,18 +131,18 @@ class MainRolesModule(commands.Cog):
 					stmt = self.DataBaseManager.select(roles_custom_model).options(self.DataBaseManager.selectinload(roles_custom_model.users)).where(roles_custom_model.creator_id == ctx.author.id)
 					custom_role = (await session.execute(stmt)).scalars().first()
 					if custom_role is None:
-						await error_helper.out(d=f'Вы не создавали кастомных ролей.\nЧтобы получить информацию о статичной роли, введите целевую роль в поле "роль" при вызове команды "/роль инфо"')
+						await err_embed.send(f'Вы не создавали кастомных ролей.\nЧтобы получить информацию о статичной роли, введите целевую роль в поле "роль" при вызове команды "/роль инфо"')
 						return
 					role = krekchat.get_role(custom_role.id)
 					if role is None:
-						await error_helper.out(d=f'Вашей роли нет на сервере, вероятно, произошла ошибка, обратитесь к администратору')
+						await err_embed.send(f'Вашей роли нет на сервере, вероятно, произошла ошибка, обратитесь к администратору')
 						return
 					
 				else:
 					stmt = self.DataBaseManager.select(roles_static_model).where(roles_static_model.id == role.id)
 					static_role = (await session.execute(stmt)).scalars().first()
 					if not static_role is None:
-						embed = disnake.Embed(title=f"", description=f'### Информация о статичной роли {role.mention}', colour=0x2F3136)
+						embed = self.client.InfoEmbed(title=f"", description=f'### Информация о статичной роли {role.mention}', colour=0x2F3136)
 						embed.add_field(name=f"Описание", value=f"> {static_role.description}", inline=True)
 						await ctx.edit_original_message(embed=embed)
 						return
@@ -148,10 +150,10 @@ class MainRolesModule(commands.Cog):
 						stmt = self.DataBaseManager.select(roles_custom_model).options(self.DataBaseManager.selectinload(roles_custom_model.users)).where(roles_custom_model.id == role.id)
 						custom_role = (await session.execute(stmt)).scalars().first()
 						if custom_role is None:
-							await error_helper.out(d=f'Описания этой роли пока не существует.')
+							await err_embed.send(f'Описания этой роли пока не существует.')
 							return
 
-			embed = disnake.Embed(title=f"", description=f'### Информация о кастомной роли {role.mention}', colour=0x2F3136)
+			embed = self.client.InfoEmbed(title=f"", description=f'### Информация о кастомной роли {role.mention}', colour=0x2F3136)
 			embed.add_field(name=f"Время продления", value=f"> <t:{int(custom_role.renewal_date)}:D>", inline=True)
 			embed.add_field(name=f"Цена продления", value=f"> {constants['costrolerenewal']}", inline=True)
 			embed.add_field(name=f"", value=f"", inline=False)
@@ -172,10 +174,10 @@ class MainRolesModule(commands.Cog):
 	@RoleChangeSlash.sub_command(description="Позволяет изменить вашу роль", name="роль")
 	async def RoleChangeSub(self, ctx: disnake.AppCmdInter):
 		await ctx.response.defer()
-		error_helper = self.client.ErrorOutHelper(send_function = ctx.edit_original_message, err_name = "Ошибка изменения роли")
+		err_embed = self.client.ErrEmbed(err_func = ctx.edit_original_message, title = "Ошибка изменения роли")
 
 		if ctx.guild is None:
-			await error_helper.out(d="Эта команда не работает в личных сообщениях!")
+			await err_embed.send("Эта команда не работает в личных сообщениях!")
 			return
 
 		krekchat = await self.client.fetch_guild(constants["krekchat"])
@@ -193,8 +195,8 @@ class MainRolesModule(commands.Cog):
 			@disnake.ui.button(label="Стоимость", custom_id="cost", style=disnake.ButtonStyle.blurple)
 			async def cost(self, button, inter):
 				if inter.author != self.ctx.author:
-					error = self.client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете редактировать эту роль", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете редактировать эту роль")
+					await inter.send(embed=err_embed, ephemeral = True)
 					return
 				modal = ActionModal(self.role, self.ctx, self.embed, "cost")
 				await inter.response.send_modal(modal)
@@ -202,8 +204,8 @@ class MainRolesModule(commands.Cog):
 			@disnake.ui.button(label="Цвет", custom_id="color", style=disnake.ButtonStyle.blurple)
 			async def color(self, button, inter):
 				if inter.author != self.ctx.author:
-					error = self.client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете редактировать эту роль", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете редактировать эту роль")
+					await inter.send(embed=err_embed, ephemeral = True)
 					return
 				modal = ActionModal(self.role, self.ctx, self.embed, "color")
 				await inter.response.send_modal(modal)
@@ -211,8 +213,8 @@ class MainRolesModule(commands.Cog):
 			@disnake.ui.button(label="Название", custom_id="name", style=disnake.ButtonStyle.blurple)
 			async def name(self, button, inter):
 				if inter.author != self.ctx.author:
-					error = self.client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете редактировать эту роль", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете редактировать эту роль")
+					await inter.send(embed=err_embed, ephemeral = True)
 					return
 				modal = ActionModal(self.role, self.ctx, self.embed, "name")
 				await inter.response.send_modal(modal)
@@ -220,8 +222,8 @@ class MainRolesModule(commands.Cog):
 			@disnake.ui.button(label="Иконку", custom_id="icon", style=disnake.ButtonStyle.blurple)
 			async def icon(self, button, inter):
 				if inter.author != self.ctx.author:
-					error = self.client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете редактировать эту роль", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете редактировать эту роль")
+					await inter.send(embed=err_embed, ephemeral = True)
 					return
 				modal = ActionModal(self.role, self.ctx, self.embed, "icon")
 				await inter.response.send_modal(modal)
@@ -234,11 +236,13 @@ class MainRolesModule(commands.Cog):
 
 		class ActionModal(disnake.ui.Modal):
 			DataBaseManager = self.DataBaseManager
+			client = self.client
 			def __init__(self, role, ctx, embed, operation):
 				self.role = role
 				self.ctx = ctx
 				self.embed = embed
 				self.operation = operation
+				components = []
 				if operation == "name":
 					components = [
 						disnake.ui.TextInput(label="Новое название", placeholder="Например: abc", custom_id="name",
@@ -262,9 +266,10 @@ class MainRolesModule(commands.Cog):
 
 				super().__init__(title=operation, components=components, timeout=300)
 
-			async def callback(self, interaction: disnake.Interaction):
+			async def callback(self, interaction: disnake.ModalInteraction):
 				ctx = self.ctx
-				error_helper.send_function = interaction.send
+				err_embed = self.client.ErrEmbed(err_func = interaction.send, title = "Ошибка изменения роли")
+
 				async with self.DataBaseManager.session() as session:
 					key, value, = list(interaction.text_values.items())[0]
 					await interaction.response.defer(ephemeral=True)
@@ -276,7 +281,7 @@ class MainRolesModule(commands.Cog):
 					if self.operation == "cost":
 						cost = abs(int(value))
 						if not 100 < cost < 2147483647:
-							await error_helper.out(d = "Нельзя ставить стоимость роли меньше 100")
+							await err_embed.send("Нельзя ставить стоимость роли меньше 100")
 							return
 						async with session.begin():
 							async with self.DataBaseManager.models['roles_custom'] as roles_custom_model:
@@ -286,47 +291,47 @@ class MainRolesModule(commands.Cog):
 						image_url = value
 						TRUSTED_DOMAINS = ["imgur.com", "cdn.discordapp.com", "i.imgur.com"]
 						if ctx.guild.premium_tier < 2:
-							await error_helper.out(d = "Этот сервер должен быть уровня 2 буста для изменения иконок ролей")
+							await err_embed.send("Этот сервер должен быть уровня 2 буста для изменения иконок ролей")
 							return
 						if not any(domain in image_url for domain in TRUSTED_DOMAINS):
-							await error_helper.out(d = "Загрузка изображений разрешена только с ресурса https://imgur.com/")
+							await err_embed.send("Загрузка изображений разрешена только с ресурса https://imgur.com/")
 							return
 						if not image_url.lower().endswith((".png", ".jpg", ".jpeg")):
-							await error_helper.out(d = "Разрешены только файлы с расширением .png, .jpg или .jpeg")
+							await err_embed.send("Разрешены только файлы с расширением .png, .jpg или .jpeg")
 							return
-						async with aiohttp.ClientSession() as session:
+						async with aiohttp.ClientSession() as http_session:
 							try:
 								headers = {
 									"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 								}
-								async with session.get(image_url, headers=headers) as resp:
+								async with http_session.get(image_url, headers=headers) as resp:
 									if resp.status != 200:
-										await error_helper.out(d = "Не удалось загрузить изображение")
+										await err_embed.send("Не удалось загрузить изображение")
 										return
 
 									content_type = resp.headers.get("Content-Type", "").lower()
 									if content_type not in ("image/png", "image/jpeg"):
-										await error_helper.out(d = "Файл должен быть изображением в формате PNG или JPEG")
+										await err_embed.send("Файл должен быть изображением в формате PNG или JPEG")
 										return
 
 									# Проверка размера файла (не более 5 МБ)
 									content_length = int(resp.headers.get("Content-Length", 0))
 									if content_length > 5 * 1024 * 1024:  # 5 МБ
-										await error_helper.out(d = "Размер файла не должен превышать 5 МБ")
+										await err_embed.send("Размер файла не должен превышать 5 МБ")
 										return
 
 									image_data = await resp.read()  # Получаем изображение в виде bytes
 
 							except aiohttp.ClientError as e:
-								await error_helper.out(d = f"Ошибка при загрузке изображения: {e}")
+								await err_embed.send(f"Ошибка при загрузке изображения: {e}")
 								return
 						try:
 							await self.role.edit(icon=image_data, reason=f"Иконка изменена пользователем {ctx.author}")
 						except disnake.Forbidden:
-							await error_helper.out(d = "У бота недостаточно прав для изменения роли")
+							await err_embed.send("У бота недостаточно прав для изменения роли")
 							return
 						except disnake.HTTPException as e:
-							await error_helper.out(d = f"Ошибка при изменении роли: {e}")
+							await err_embed.send(f"Ошибка при изменении роли: {e}")
 							return
 
 					krekchat = await client.fetch_guild(constants["krekchat"])
@@ -339,7 +344,7 @@ class MainRolesModule(commands.Cog):
 							custom_role = (await session.execute(stmt)).scalars().first()
 							self.embed.description = f"**Укажите, какой параметр вы хотите изменить у роли {role.mention}:**\n\n**1) Стоимость: **```{custom_role.cost} крошек```\n**2) Цвет: **```{role.color}```\n**3) Название: **```{role.name}```"
 
-					await interaction.edit_original_message(embed=disnake.Embed(title="Роль успешно изменена!", description=f'', colour=0x2F3136))
+					await interaction.edit_original_message(embed=self.client.InfoEmbed(title="Роль успешно изменена!", description=f'', colour=0x2F3136))
 
 					await self.ctx.edit_original_message(embed=self.embed)
 
@@ -349,15 +354,15 @@ class MainRolesModule(commands.Cog):
 					stmt = self.DataBaseManager.select(users_model).options(self.DataBaseManager.joinedload(users_model.creation_role)).where(users_model.id == ctx.author.id)
 					user = (await session.execute(stmt)).scalars().first()
 					if user.creation_role is None:
-						await error_helper.out(d=f"Вы не создавали кастомных ролей")
+						await err_embed.send(f"Вы не создавали кастомных ролей")
 						return
 
 					role = krekchat.get_role(user.creation_role.id)
 					if not role:
-						await error_helper.out(d=f'Вашей роли нет на сервере')
+						await err_embed.send(f'Вашей роли нет на сервере')
 						return
 
-		embed = disnake.Embed(title=f"Управление ролью",
+		embed = self.client.InfoEmbed(title=f"Управление ролью",
 							  description=f'**Укажите, какой параметр вы хотите изменить у роли {role.mention}:**\n\n**1) Стоимость: **```{user.creation_role.cost} крошек```\n**2) Цвет: **```{role.color}```\n**3) Название: **```{role.name}```',
 							  colour=0x2F3136)
 		embed.set_thumbnail(ctx.author.avatar)
@@ -373,9 +378,9 @@ class MainRolesModule(commands.Cog):
 	@RoleInventorySlash.sub_command(description="Показывает все роли, которыми вы владеете", name="ролей")
 	async def RoleInventorySub(self, ctx: disnake.AppCmdInter):
 		await ctx.response.defer()
-		error_helper = self.client.ErrorOutHelper(send_function = ctx.edit_original_message, err_name = "Ошибка инвентаря")
+		err_embed = self.client.ErrEmbed(err_func = ctx.edit_original_message, title = "Ошибка инвентаря")
 		if ctx.guild is None:
-			await error_helper.out(d="Эта команда не работает в личных сообщениях!")
+			await err_embed.send("Эта команда не работает в личных сообщениях!")
 			return
 		krekchat = await self.client.fetch_guild(constants["krekchat"])
 
@@ -396,48 +401,48 @@ class MainRolesModule(commands.Cog):
 			@disnake.ui.button(label="1", custom_id="1", style=disnake.ButtonStyle.blurple)
 			async def one(self, button, inter):
 				if inter.author != self.ctx.author:
-					error = self.client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете управлять ролями другого участника", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете управлять ролями другого участника")
+					await inter.send(embed = err_embed, ephemeral = True)
 					return
 				await self.ToggleRoles(inter, button)
 
 			@disnake.ui.button(label="2", custom_id="2", style=disnake.ButtonStyle.blurple)
 			async def two(self, button, inter):
 				if inter.author != self.ctx.author:
-					error = self.client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете управлять ролями другого участника", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете управлять ролями другого участника")
+					await inter.send(embed = err_embed, ephemeral = True)
 					return
 				await self.ToggleRoles(inter, button)
 
 			@disnake.ui.button(label="3", custom_id="3", style=disnake.ButtonStyle.blurple)
 			async def three(self, button, inter):
 				if inter.author != self.ctx.author:
-					error = self.client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете управлять ролями другого участника", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете управлять ролями другого участника")
+					await inter.send(embed = err_embed, ephemeral = True)
 					return
 				await self.ToggleRoles(inter, button)
 
 			@disnake.ui.button(label="4", custom_id="4", style=disnake.ButtonStyle.blurple)
 			async def four(self, button, inter):
 				if inter.author != self.ctx.author:
-					error = self.client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете управлять ролями другого участника", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете управлять ролями другого участника")
+					await inter.send(embed = err_embed, ephemeral = True)
 					return
 				await self.ToggleRoles(inter, button)
 
 			@disnake.ui.button(label="5", custom_id="5", style=disnake.ButtonStyle.blurple)
 			async def five(self, button, inter):
 				if inter.author != self.ctx.author:
-					error = self.client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете управлять ролями другого участника", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете управлять ролями другого участника")
+					await inter.send(embed = err_embed, ephemeral = True)
 					return
 				await self.ToggleRoles(inter, button)
 
 			@disnake.ui.button(label="<", custom_id="left", style=disnake.ButtonStyle.secondary)
 			async def left(self, button, inter):
 				if inter.author != self.ctx.author:
-					error = self.client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете управлять ролями другого участника", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете управлять ролями другого участника")
+					await inter.send(embed = err_embed, ephemeral = True)
 					return
 				self.page -= 1
 				self.left.disabled = (self.page == 1)
@@ -448,8 +453,8 @@ class MainRolesModule(commands.Cog):
 			@disnake.ui.button(label=">", custom_id="right", style=disnake.ButtonStyle.secondary)
 			async def right(self, button, inter):
 				if inter.author != self.ctx.author:
-					error = self.client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете управлять ролями другого участника", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете управлять ролями другого участника")
+					await inter.send(embed = err_embed, ephemeral = True)
 					return
 				self.page += 1
 				self.left.disabled = (self.page == 1)
@@ -458,13 +463,13 @@ class MainRolesModule(commands.Cog):
 				await inter.response.edit_message(embed=self.embed, view=self)
 
 			async def ToggleRoles(self, inter, button):
-				error_helper = self.client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка инвентаря", ephemeral = True)
+				err_embed = self.client.ErrEmbed(err_func = inter.send, err_func_kwargs = {'ephemeral': True}, title = "Ошибка инвентаря")
 
 				if len(self.inventory) < 1:
-					await error_helper.out(d=f'Роли с таким номером нет на странице')
+					await err_embed.send(f'Роли с таким номером нет на странице')
 					return
 				if len(self.inventory[self.page - 1]) < int(button.custom_id):
-					await error_helper.out(d=f'Роли с таким номером нет на странице')
+					await err_embed.send(f'Роли с таким номером нет на странице')
 					return
 				role = self.inventory[self.page - 1][int(button.custom_id) - 1]
 				role = krekchat.get_role(role)
@@ -491,7 +496,7 @@ class MainRolesModule(commands.Cog):
 								roles_inventory_ids += [role.role_id for role in prize_roles if not role.role_id in roles_inventory_ids]
 					
 					if not role.id in roles_inventory_ids:
-						await error_helper.out(d=f"Эта роль пропала из вашего инвентаря")
+						await err_embed.send(f"Эта роль пропала из вашего инвентаря")
 						return
 					await self.ctx.author.add_roles(role)
 				self.embed = await EmbedRoleInventoryChanger(self.inventory, self.embed, self.page, self.ctx.author)
@@ -546,7 +551,7 @@ class MainRolesModule(commands.Cog):
 					roles_inventory_sorted_ids += [role.role_id for role in custom_roles if not role.role_id in roles_inventory_sorted_ids]
 
 		ready_array = self.client.PartitioningEmbeder(roles_inventory_sorted_ids)
-		embed = disnake.Embed(title=f"Инвентарь ролей", description=f'', colour=0x2F3136)
+		embed = self.client.InfoEmbed(title=f"Инвентарь ролей", description=f'', colour=0x2F3136)
 		embed.set_thumbnail(ctx.author.avatar)
 		view = RolesInventoryButtons(ctx, ready_array, embed)
 
@@ -567,17 +572,17 @@ class MainRolesModule(commands.Cog):
 
 		'''
 		await ctx.response.defer()
-		error_helper = self.client.ErrorOutHelper(send_function = ctx.edit_original_message, err_name = "Ошибка магазина")
+		err_embed = self.client.ErrEmbed(err_func = ctx.edit_original_message, title = "Ошибка магазина")
 		DataBaseManager = self.DataBaseManager
 
 		if ctx.guild is None:
-			await error_helper.out(d="Эта команда не работает в личных сообщениях!")
+			await err_embed.send("Эта команда не работает в личных сообщениях!")
 			return
 		PartitioningEmbeder = self.client.PartitioningEmbeder
-		client = self.client
-		krekchat = await client.fetch_guild(constants["krekchat"])
+		krekchat = await self.client.fetch_guild(constants["krekchat"])
 
 		class ShopView(disnake.ui.View):
+			client = self.client
 			def __init__(self, ctx, embed):
 				super().__init__(timeout=180)
 				self.ctx = ctx
@@ -619,8 +624,8 @@ class MainRolesModule(commands.Cog):
 			async def leftmax(self, button, inter):
 				await inter.response.defer()
 				if inter.author != self.ctx.author:
-					error = client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли")
+					await inter.send(embed = err_embed, ephemeral = True)
 					return
 				self.page = 1
 				self.leftmax.disabled = (self.page == 1)
@@ -636,8 +641,8 @@ class MainRolesModule(commands.Cog):
 			async def left(self, button, inter):
 				await inter.response.defer()
 				if inter.author != self.ctx.author:
-					error = client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли")
+					await inter.send(embed = err_embed, ephemeral = True)
 					return
 				self.page = max(self.page - 1, 1)
 				self.leftmax.disabled = (self.page == 1)
@@ -653,8 +658,8 @@ class MainRolesModule(commands.Cog):
 			async def right(self, button, inter):
 				await inter.response.defer()
 				if inter.author != self.ctx.author:
-					error = client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли")
+					await inter.send(embed = err_embed, ephemeral = True)
 					return
 				self.page = min(self.page + 1, self.maxpage)
 				self.leftmax.disabled = (self.page == 1)
@@ -670,8 +675,8 @@ class MainRolesModule(commands.Cog):
 			async def rightmax(self, button, inter):
 				await inter.response.defer()
 				if inter.author != self.ctx.author:
-					error = client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли")
+					await inter.send(embed = err_embed, ephemeral = True)
 					return
 				self.page = self.maxpage
 				self.leftmax.disabled = (self.page == 1)
@@ -699,8 +704,8 @@ class MainRolesModule(commands.Cog):
 			async def sort(self, select: disnake.ui.StringSelect, inter: disnake.MessageInteraction):
 				await inter.response.defer()
 				if inter.author != self.ctx.author:
-					error = client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли")
+					await inter.send(embed = err_embed, ephemeral = True)
 					return
 				self.page = 1
 				self.leftmax.disabled = (self.page == 1)
@@ -721,40 +726,40 @@ class MainRolesModule(commands.Cog):
 			@disnake.ui.button(label="1", custom_id="1", style=disnake.ButtonStyle.blurple, row=3)
 			async def one(self, button, inter):
 				if inter.author != self.ctx.author:
-					error = client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли")
+					await inter.send(embed = err_embed, ephemeral = True)
 					return
 				await self.BuyRoles(inter, button)
 
 			@disnake.ui.button(label="2", custom_id="2", style=disnake.ButtonStyle.blurple, row=3)
 			async def two(self, button, inter):
 				if inter.author != self.ctx.author:
-					error = client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли")
+					await inter.send(embed = err_embed, ephemeral = True)
 					return
 				await self.BuyRoles(inter, button)
 
 			@disnake.ui.button(label="3", custom_id="3", style=disnake.ButtonStyle.blurple, row=3)
 			async def three(self, button, inter):
 				if inter.author != self.ctx.author:
-					error = client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли")
+					await inter.send(embed = err_embed, ephemeral = True)
 					return
 				await self.BuyRoles(inter, button)
 
 			@disnake.ui.button(label="4", custom_id="4", style=disnake.ButtonStyle.blurple, row=3)
 			async def four(self, button, inter):
 				if inter.author != self.ctx.author:
-					error = client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли")
+					await inter.send(embed = err_embed, ephemeral = True)
 					return
 				await self.BuyRoles(inter, button)
 
 			@disnake.ui.button(label="5", custom_id="5", style=disnake.ButtonStyle.blurple, row=3)
 			async def five(self, button, inter):
 				if inter.author != self.ctx.author:
-					error = client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли")
+					await inter.send(embed = err_embed, ephemeral = True)
 					return
 				await self.BuyRoles(inter, button)
 
@@ -765,7 +770,7 @@ class MainRolesModule(commands.Cog):
 				await self.ctx.edit_original_message(view=self)
 
 			async def BuyRoles(self, inter, button):
-				error_helper = client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка покупки", ephemeral = True)
+				err_embed = self.client.ErrEmbed(err_func = inter.send, err_func_kwargs = {'ephemeral': True}, title = "Ошибка покупки")
 				async with DataBaseManager.session() as session:
 					async with session.begin():
 						async with DataBaseManager.models['users'] as users_model:
@@ -777,24 +782,25 @@ class MainRolesModule(commands.Cog):
 								self.page - 1]
 
 							if len(page) < int(button.custom_id):
-								await error_helper.out(d=f'Роли с таким номером нет на странице')
+								await err_embed.send(f'Роли с таким номером нет на странице')
 								return
 
 							custom_role = page[int(button.custom_id) - 1]
 							if user.crumbs < custom_role.cost:
-								await error_helper.out(d=f'У вас недостаточно крошек')
+								await err_embed.send(f'У вас недостаточно крошек')
 								return
 
 							if custom_role.id in [role.id for role in user.custom_roles]:
-								await error_helper.out(d=f'У вас уже есть эта роль')
+								await err_embed.send(f'У вас уже есть эта роль')
 								return
 
 							role = krekchat.get_role(custom_role.id)
-							confirmembed = disnake.Embed(description=f'Вы уверены, что хотите преобрести роль {role.mention if role else custom_role.id} за {custom_role.cost} крошек?',
+							confirmembed = self.client.InfoEmbed(description=f'Вы уверены, что хотите преобрести роль {role.mention if role else custom_role.id} за {custom_role.cost} крошек?',
 								colour=0x2F3136)
 							ConfMessage = ConfirmView(self.ctx, role, custom_role)
 							await inter.response.edit_message(view=ConfMessage, embed=confirmembed)
 		class ConfirmView(disnake.ui.View):
+			client = self.client
 			def __init__(self, ctx, role, custom_role):
 				super().__init__(timeout=180)
 				self.ctx = ctx
@@ -804,12 +810,12 @@ class MainRolesModule(commands.Cog):
 			@disnake.ui.button(label="Да", custom_id="yes", style=disnake.ButtonStyle.green)
 			async def yes(self, button, inter):
 				if inter.author != self.ctx.author:
-					error = client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете покупать роли за другого участника. Используйте команду `/магазин ролей`, чтобы купить роли", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли")
+					await inter.send(embed = err_embed, ephemeral = True)
 					return
 				if not self.role:
-					error = client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка покупки", err_description = "Такая роль не найдена на сервере. Возможно, это ошибка базы данных", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка покупки", description = "Такая роль не найдена на сервере. Возможно, это ошибка базы данных")
+					await inter.send(embed = err_embed, ephemeral = True)
 					return
 
 				ctx = self.ctx
@@ -826,19 +832,19 @@ class MainRolesModule(commands.Cog):
 							session.add(receive)
 							history = DataBaseManager.models['transaction_history_crumbs'].m(sender_id = user.id, recipient_id = creator.id, amount = self.custom_role.cost, description = f"Покупка роли {self.role.mention}")
 							await self.ctx.author.add_roles(self.role)
-							embed = disnake.Embed(description=f'Роль {self.role.mention} успешно преобретена!', colour=0x2F3136)
+							embed = self.client.InfoEmbed(description=f'Роль {self.role.mention} успешно преобретена!', colour=0x2F3136)
 							await self.ctx.edit_original_message(embed=embed, view=None)
 
 			@disnake.ui.button(label="Нет", custom_id="no", style=disnake.ButtonStyle.red)
 			async def no(self, button, inter):
 				if inter.author != self.ctx.author:
-					error = client.ErrorOutHelper(send_function = inter.send, err_name = "Ошибка доступа", err_description = "Вы не можете покупать роли за другого участника. Используйте команду `/магазин ролей`, чтобы купить роли", ephemeral = True)
-					await error.out()
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = "Вы не можете покупать роли в магазине другого участника. Используйте команду `/магазин ролей`, чтобы купить роли")
+					await inter.send(embed = err_embed, ephemeral = True)
 					return
 
 				ctx = self.ctx
 
-				embed = disnake.Embed(title=f"Магазин ролей", description=f'', colour=0x2F3136)
+				embed = self.client.InfoEmbed(title=f"Магазин ролей", description=f'', colour=0x2F3136)
 				ShopMessage = ShopView(ctx, embed)
 				await ShopMessage.initialize()
 				ShopMessage.leftmax.disabled = (ShopMessage.page == 1)
@@ -902,7 +908,7 @@ class MainRolesModule(commands.Cog):
 								inline=False)
 				c += 1
 			return embed
-		embed = disnake.Embed(title=f"Магазин ролей", description=f'', colour=0x2F3136)
+		embed = self.client.InfoEmbed(title=f"Магазин ролей", description=f'', colour=0x2F3136)
 		async with DataBaseManager.session() as session:
 			await self.client.UserUpdate(ctx.author, session = session)
 			async with session.begin():

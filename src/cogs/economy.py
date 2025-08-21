@@ -1,3 +1,4 @@
+import logging
 import disnake
 from disnake.ext import commands
 from disnake.ext import tasks
@@ -28,7 +29,7 @@ class MainEconomyModule(commands.Cog):
 		self.krekchat = await self.client.fetch_guild(constants["krekchat"])
 		self.sponsors = [disnake.utils.get(self.krekchat.roles, id=i) for i in constants["sponsors"]]
 		self.me = disnake.utils.get(self.krekchat.roles, id=constants["me"])
-		print(f'KrekFunBot economy module activated')
+		logging.info(f'KrekFunBot economy module activated')
 
 	@commands.slash_command(name = "статистика", description="Статистика отображает все данные о пользователе")
 	async def UserStatistic(self, ctx: disnake.AppCmdInter,
@@ -37,11 +38,11 @@ class MainEconomyModule(commands.Cog):
 			member = ctx.author
 
 		if ctx.guild is None:
-			embed = disnake.Embed(title=f"Статистика **{member.name}**", description=f'')
+			embed = self.client.InfoEmbed(title=f"Статистика **{member.name}**", description=f'')
 		elif member.nick != None:
-			embed = disnake.Embed(title=f"Статистика **{member.nick}**", description=f'')
+			embed = self.client.InfoEmbed(title=f"Статистика **{member.nick}**", description=f'')
 		else:
-			embed = disnake.Embed(title=f"Статистика **{member.name}**", description=f'')
+			embed = self.client.InfoEmbed(title=f"Статистика **{member.name}**", description=f'')
 
 		embed.set_thumbnail(url=member.avatar)
 
@@ -54,7 +55,8 @@ class MainEconomyModule(commands.Cog):
 			async with session.begin():
 				user = await session.get(users_model, member.id)
 				if user is None:
-					await self.client.ErrorOutHelper(send_function = ctx.edit_original_message, err_name = "Ошибка статистики").out(d="Такого пользователя нет в базе данных")
+					embed = self.client.ErrEmbed(title="Ошибка статистики", description="Такого пользователя нет в базе данных")
+					await ctx.edit_original_message(embed=embed)
 					return
 
 				stmt = self.DataBaseManager.select(users_model).options(
@@ -126,10 +128,12 @@ class MainEconomyModule(commands.Cog):
 							order_by = [self.DataBaseManager.desc(users_model.period_voice_activity), self.DataBaseManager.desc(users_model.period_messages)]
 						case "по количеству крошек":
 							order_by = [self.DataBaseManager.desc(users_model.crumbs), self.DataBaseManager.desc(users_model.period_messages), self.DataBaseManager.desc(users_model.period_voice_activity)]
+					if order_by is None:
+						return
 					stmt = self.DataBaseManager.select(users_model).order_by(*order_by).limit(20)
 					users = (await session.execute(stmt)).scalars().all()
 
-		embed = disnake.Embed(title=f"Общий топ {parameter}", description=f'', colour=0x2F3136)
+		embed = self.client.InfoEmbed(title=f"Общий топ {parameter}", description=f'')
 		users_counter = 0
 		for user in users:
 			try:
@@ -176,9 +180,10 @@ class MainEconomyModule(commands.Cog):
 		name="награда")
 	async def DailyCrumbsSub(self, ctx: disnake.AppCmdInter):
 		await ctx.response.defer()
-		error_helper = self.client.ErrorOutHelper(send_function = ctx.edit_original_message, err_name = "Ошибка начисления ежедневной награды")
+		err_embed = self.client.ErrEmbed(title="Ошибка начисления ежедневной награды")
 		if ctx.guild is None:
-			await error_helper.out(d="Эта команда не работает в личных сообщениях!")
+			err_embed.description = "Эта команда не работает в личных сообщениях!"
+			await ctx.edit_original_message(embed=err_embed)
 			return
 		async with self.DataBaseManager.session() as session:
 			await self.client.UserUpdate(member = ctx.author, session = session)
@@ -192,10 +197,11 @@ class MainEconomyModule(commands.Cog):
 					if result['success']:
 						history = self.DataBaseManager.models['transaction_history_crumbs'].m(recipient_id = ctx.author.id, amount = result['count'], description = f"Ежедневная награда за {result['date'].strftime('%d.%m.%Y')}")
 						session.add(history)
-						await ctx.edit_original_message(embed=disnake.Embed(description=result['output'], colour=0x2F3136))
+						await ctx.edit_original_message(embed=self.client.InfoEmbed(description=result['output']))
 						return
 					else:
-						await error_helper.out(d=result['output'])
+						err_embed.description = result['output']
+						await ctx.edit_original_message(embed=err_embed)
 						return
 
 
@@ -203,11 +209,13 @@ class MainEconomyModule(commands.Cog):
 	async def HistoryCrumbsSlash(self, ctx: disnake.AppCmdInter):
 		pass
 	@HistoryCrumbsSlash.sub_command(description="Показывает историю транзакций", name="транзакций")
-	async def HistoryCrumbsSub(self, ctx: disnake.AppCmdInter, member: disnake.Member = commands.Param(
+	async def HistoryCrumbsSub(self, ctx: disnake.AppCmdInter, member_inp: disnake.Member = commands.Param(
 							  description="Чью историю хотите посмотреть?(только для администраторов)",
 							  name="участник", default=None)):
-		if not (member != None and self.me in ctx.author.roles):
-			member = ctx.author
+		
+		member = ctx.author
+		if isinstance(ctx.author, disnake.Member) and (member_inp is not None) and (self.me in ctx.author.roles):
+			member = member_inp
 		class HistoryButtons(disnake.ui.View):
 			def __init__(self, ctx, transactions, member, embed):
 				super().__init__(timeout=180)
@@ -276,7 +284,7 @@ class MainEconomyModule(commands.Cog):
 			embed.add_field(name=f"", value=f"Страница {selfpage}/{maxpage}", inline=False)
 			return embed
 		await ctx.response.defer(ephemeral = True)
-		embed = disnake.Embed(title=f'История транзакций {member.name}', description=f"", colour=0x2F3136)
+		embed = self.client.InfoEmbed(title=f'История транзакций {member.name}', description=f"")
 
 		async with self.DataBaseManager.session() as session:
 			async with session.begin():
@@ -307,9 +315,11 @@ class MainEconomyModule(commands.Cog):
 							  description=f"Количество круток(целое число от 1 до {constants['casinospinslimit']}({constants['casinospinslimit']*2} для спонсоров))",
 							  name="количество", default=1)):
 		await ctx.response.defer()
-		error_helper = self.client.ErrorOutHelper(send_function = ctx.edit_original_message, err_name = "Ошибка казино")
-		if ctx.guild is None:
-			await error_helper.out(d="Эта команда не работает в личных сообщениях!")
+
+		err_embed = self.client.ErrEmbed(title="Ошибка казино")
+		if isinstance(ctx.author, disnake.User):
+			err_embed.description = "Эта команда не работает в личных сообщениях!"
+			await ctx.edit_original_message(embed=err_embed)
 			return
 		def get_dynamic_fee(count: int) -> float:
 			if count < 1_000:
@@ -349,21 +359,25 @@ class MainEconomyModule(commands.Cog):
 				user_is_sponsor = await user.in_role(member = ctx.author, roles = self.sponsors)
 				casinospinslimit = constants['casinospinslimit']
 				if quantity <= 0:
-					await error_helper.out(d=f'Количество круток должно быть > 0')
+					err_embed.description = f'Количество круток должно быть > 0'
+					await ctx.edit_original_message(embed=err_embed)
 					return
 				if quantity > casinospinslimit * (user_is_sponsor + 1) and (not self.me in ctx.author.roles):
-					await error_helper.out(d=f'Вы не можете крутить казино больше {casinospinslimit * (user_is_sponsor + 1)} раз в день!')
+					err_embed.description = f'Вы не можете крутить казино больше {casinospinslimit * (user_is_sponsor + 1)} раз в день!'
+					await ctx.edit_original_message(embed=err_embed)
 					return
 				if not 0 < possibility < 100:
-					await error_helper.out(d=f'Шанс должен быть от 1% до 99%')
+					err_embed.description = f'Шанс должен быть от 1% до 99%'
+					await ctx.edit_original_message(embed=err_embed)
 					return
-				possibility = possibility / 100
+				possibility = possibility // 100
 				if count <= 0:
-					await error_helper.out(d=f'Ставка должна быть больше 0')
+					err_embed.description = f'Ставка должна быть больше 0'
+					await ctx.edit_original_message(embed=err_embed)
 					return
-
 				if user.crumbs < count * quantity:
-					await error_helper.out(d=f'Для такой ставки вам необходимо иметь {quantity*count} крошек')
+					err_embed.description = f'Для такой ставки вам необходимо иметь {quantity*count} крошек'
+					await ctx.edit_original_message(embed=err_embed)
 					return
 
 				now = datetime.datetime.now().timestamp()
@@ -374,9 +388,11 @@ class MainEconomyModule(commands.Cog):
 
 				if casino_user.spins_today_count + quantity > casinospinslimit * (user_is_sponsor + 1) and (not self.me in ctx.author.roles):
 					if casino_user.spins_today_count >= casinospinslimit * (user_is_sponsor + 1):
-						await error_helper.out(d=f'У вас не осталось круток, возобновление лимита будет <t:{casino_user.last_reset_time + 86400}:R>')
+						err_embed.description = f'У вас не осталось круток, возобновление лимита будет <t:{casino_user.last_reset_time + 86400}:R>'
+						await ctx.edit_original_message(embed=err_embed)
 					else:
-						await error_helper.out(d=f'У вас осталось только {casinospinslimit * (user_is_sponsor + 1) - (casino_user.spins_today_count)} круток, возобновление лимита будет <t:{casino_user.last_reset_time + 86400}:R>')
+						err_embed.description = f'У вас осталось только {casinospinslimit * (user_is_sponsor + 1) - (casino_user.spins_today_count)} круток, возобновление лимита будет <t:{casino_user.last_reset_time + 86400}:R>'
+						await ctx.edit_original_message(embed=err_embed)
 					return
 
 				results = [random.random() < possibility for _ in range(quantity)]
@@ -389,14 +405,16 @@ class MainEconomyModule(commands.Cog):
 				if int(totalcrumbs)>0:
 					history = self.DataBaseManager.models['transaction_history_crumbs'].m(recipient_id = ctx.author.id, amount = int(totalcrumbs), description = f"Выигрыш в казино с шансом {int(possibility * 100)}% и ставкой {count} крошек ({totalwins} побед, {quantity-totalwins} поражений)")
 					session.add(history)
-					embed=disnake.Embed(title=f'Вы в плюсе!', description=f"Ваш выигрыш составил {int(totalcrumbs)}!", colour=0x2F3136)
+					embed=self.client.InfoEmbed(title=f'Вы в плюсе!', description=f"Ваш выигрыш составил {int(totalcrumbs)}!")
 				elif int(totalcrumbs) == 0:
-					embed=disnake.Embed(title=f'Вы вышли в 0',description=f"", colour=0x2F3136)
+					embed=self.client.InfoEmbed(title=f'Вы вышли в 0',description=f"")
 				else:
 					history = self.DataBaseManager.models['transaction_history_crumbs'].m(sender_id = ctx.author.id, amount = int(abs(totalcrumbs)), description = f"Проигрыш в казино с шансом {int(possibility * 100)}% и ставкой {count} крошек ({totalwins} побед, {quantity-totalwins} поражений)")
 					session.add(history)
-					embed=disnake.Embed(title=f'Вы в минусе(', description=f"Ваш проигрыш составил {int(-totalcrumbs)}", colour=0x2F3136)
+					embed=self.client.InfoEmbed(title=f'Вы в минусе(', description=f"Ваш проигрыш составил {int(-totalcrumbs)}")
 				
+				if embed.description is None:
+					raise ValueError("embed.description в казино = None")
 				embed.description += (f"\n-# У вас осталось {casinospinslimit * (user_is_sponsor + 1) - (casino_user.spins_today_count)} круток")
 				await ctx.edit_original_message(embed = embed)
 
@@ -414,16 +432,17 @@ class MainEconomyModule(commands.Cog):
 														  default="Перевод"),
 							commission: float = commands.Param(description="Доля комиссии(доступно только админам)",
 															  name="комиссия", default=None)):
-		error_helper = self.client.ErrorOutHelper(send_function = ctx.response.send_message, err_name = "Ошибка перевода")
-		if ctx.guild is None:
-			await error_helper.out(d="Эта команда не работает в личных сообщениях!")
+		
+		err_embed = self.client.ErrEmbed(err_func = ctx.response.send_message, title="Ошибка перевода")
+		if isinstance(ctx.author, disnake.User):
+			await err_embed.send("Эта команда не работает в личных сообщениях!")
 			return
 		if comment != "Перевод":
 			comment = "Перевод | " + comment
 		if (commission == None) or (not self.me in ctx.author.roles) or (ctx.author.id == 515542927158804480):
 			commission = constants['givecrumbscommission']
 		if count <= 0:
-			await error_helper.out(d="Количество крошек должно быть больше 0")
+			await err_embed.send("Количество крошек должно быть больше 0")
 			return
 		users_model = self.DataBaseManager.models['users'].m
 		async with self.DataBaseManager.session() as session:
@@ -432,15 +451,15 @@ class MainEconomyModule(commands.Cog):
 				member_data = await session.get(users_model, member.id, with_for_update = True)
 
 				if author_data is None:
-					await error_helper.out(d=f'Вас нет в базе данных')
+					await err_embed.send(f'Вас нет в базе данных')
 					return
 
 				if member_data is None:
-					await error_helper.out(d=f'Такого пользователя нет в базе данных')
+					await err_embed.send(f'Такого пользователя нет в базе данных')
 					return
 
 				if author_data.crumbs - count < 0:
-					await error_helper.out(d=f'У вас не хватает крошек')
+					await err_embed.send(f'У вас не хватает крошек')
 					return
 
 				history_write = self.DataBaseManager.models["transaction_history_crumbs"].m(sender_id = ctx.author.id, recipient_id = member.id, commission_fraction = commission, description = comment, amount = count)
@@ -448,6 +467,5 @@ class MainEconomyModule(commands.Cog):
 				author_data.crumbs -= count
 				member_data.crumbs += count * (1 - commission)
 
-				await ctx.response.send_message(embed=disnake.Embed(
-					description=f'{count} крошек успешно отправлено на счёт {member.mention}, комиссия составила {int(commission * 100)}%({int(count * commission)} крошек)',
-					colour=0x2F3136))
+				await ctx.response.send_message(embed=self.client.InfoEmbed(
+					description=f'{count} крошек успешно отправлено на счёт {member.mention}, комиссия составила {int(commission * 100)}%({int(count * commission)} крошек)'))

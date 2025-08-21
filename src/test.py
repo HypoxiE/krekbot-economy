@@ -52,9 +52,9 @@ async def main():
 		# Загрузка когов
 		sup_bot.load_extension("cogs.resetsupcommands")
 		#sup_bot.load_extension("cogs.economy")
-		sup_bot.load_extension("cogs.designer")
+		#sup_bot.load_extension("cogs.designer")
 		#sup_bot.load_extension("cogs.roles")
-		#sup_bot.load_extension("cogs.admin")
+		sup_bot.load_extension("cogs.admin")
 		#sup_bot.load_extension("cogs.rimagochi")
 
 		# Запуск монитора остановки и ботов

@@ -1,3 +1,5 @@
+import logging
+import typing
 import disnake
 from disnake.ext import commands
 from disnake.ext import tasks
@@ -52,7 +54,7 @@ class AnyBots(commands.Bot):
 
 	async def on_ready(self, inherited = False):
 		self.krekchat = await self.fetch_guild(constants["krekchat"])
-		print(self.krekchat.name)
+		logging.info(self.krekchat.name)
 		self.sponsors = [disnake.utils.get(self.krekchat.roles, id=i) for i in constants["sponsors"]]
 		self.mutes = [disnake.utils.get(self.krekchat.roles, id=i) for i in constants["mutes"]]
 		self.ban_role = disnake.utils.get(self.krekchat.roles, id=constants["ban_role"])
@@ -70,7 +72,7 @@ class AnyBots(commands.Bot):
 		await self.change_presence(status=disnake.Status.online, activity=disnake.Game("Работаю"))
 
 		if not inherited:
-			print(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}::  KrekFunBot activated")
+			logging.info(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}::  KrekFunBot activated")
 
 	async def RimagochiUserUpdate(self, member, session = None):
 		if session is None:
@@ -308,42 +310,31 @@ class AnyBots(commands.Bot):
 
 		return FormatedTime(time_units)
 
-	class ErrorOutHelper:
-		def __init__(self, send_function, err_name: str = "", err_description: str = "", ephemeral: bool = False, echo: bool = False, thumbnail = None):
-			self.err_name = err_name
-			self.err_description = err_description
-			self.send_function = send_function
-			self.ephemeral = ephemeral
-			self.echo = echo
-			self.thumbnail = thumbnail
-			self.colour = 0xff0000
+	class ErrEmbed(disnake.Embed):
+		def __init__(self, err_func: typing.Callable[..., typing.Awaitable[None]] | None = None, err_func_kwargs: dict | None = None, **kwargs):
+			color = kwargs.pop('color', 0x2F3136)
+			super().__init__(color=color, **kwargs)
+			self.err_func_kwargs: dict = err_func_kwargs or {}
+			self.err_func = err_func
 
-		async def out(self, err_description: str = "", err_name: str = "", d: str = "", n: str = ""):
-			if d:
-				err_description = d
-			if n:
-				err_name = n
+		async def send(self, description: str | None = None):
+			if self.err_func is None:
+				raise ValueError("err_func не задана")
+			
+			if description is not None:
+				self.description = description
 
-			embed = disnake.Embed(title="", description="", colour = self.colour)
-			if err_name:
-				embed.title = err_name
-			else:
-				embed.title = self.err_name
+			await self.err_func(embed = self, **self.err_func_kwargs)
 
-			if err_description:
-				embed.description = err_description
-			else:
-				embed.description = self.err_description
+	class InfoEmbed(disnake.Embed):
+		def __init__(self, **kwargs):
+			color = kwargs.pop('color', 0x2F3136)
+			super().__init__(color = color, **kwargs)
 
-			if not self.thumbnail is None:
-				embed.set_thumbnail(url = self.thumbnail)
-
-			if self.echo:
-				print(f"{embed.title}: {embed.description}")
-			if 'ephemeral' in inspect.signature(self.send_function).parameters:
-				await self.send_function(embed = embed, ephemeral = self.ephemeral)
-			else:
-				await self.send_function(embed = embed)
+	class WarnEmbed(disnake.Embed):
+		def __init__(self, **kwargs):
+			color = kwargs.pop('color', 0xFFFF00)
+			super().__init__(color = color, **kwargs)
 
 class AdminBot(AnyBots):
 	'''
@@ -372,7 +363,7 @@ class AdminBot(AnyBots):
 		else:
 			self.UpdatingTournamentData.start() # Удалить обязательно!!!
 
-		print(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: KrekFunLoopsBot activated")
+		logging.info(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: KrekFunLoopsBot activated")
 
 	async def BotOff(self):
 		self.VoiceXpAdder.cancel()
@@ -385,7 +376,7 @@ class AdminBot(AnyBots):
 		if self.stop_event.is_set():
 			pass
 		else:
-			print(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: Соединение с дискордом разорвано")
+			logging.error(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: Соединение с дискордом разорвано")
 			await self.BotOff()
 
 	async def check_bt_channel(self):
@@ -467,7 +458,7 @@ class AdminBot(AnyBots):
 					except json.JSONDecodeError as e:
 						await message.add_reaction("❎")
 					except Exception as exc:
-						print(data, exc)
+						logging.error(f"{data} {exc}")
 				if msg_stopflag:
 					stopflag = True
 					break
@@ -708,7 +699,7 @@ class AdminBot(AnyBots):
 						await self.LevelRolesGiver(member, self.CalculateLevel(period_messages, period_voice_activity))
 				
 		except Exception as e:
-			print(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: err VoiceXpAdder: {e}")
+			logging.error(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: err VoiceXpAdder: {e}")
 
 	@tasks.loop(seconds=3600)
 	async def CheckDataBase(self):
@@ -755,7 +746,7 @@ class AdminBot(AnyBots):
 				await backups_channel.send(content=f"Бэкап бд за {datetime.datetime.now()}:", file=disnake.File(backup_file))
 
 		except Exception as e:
-			print(f"err CheckDataBase: {e}")
+			logging.error(f"err CheckDataBase: {e}")
 
 async def init_db():
 	DataBaseEngine = create_async_engine(
@@ -775,19 +766,19 @@ async def run_bot(bot, token, stop_event):
 	try:
 		await bot.start(token)
 	except Exception as e:
-		print(f"Бот {bot.user.name if hasattr(bot, 'user') else 'Unknown'} упал с ошибкой: {e}")
+		logging.info(f"Бот {bot.user.name if hasattr(bot, 'user') else 'Unknown'} упал с ошибкой: {e}")
 		stop_event.set()  # Сигнализируем об остановке
 
 async def monitor_stop(stop_event, bots):
 	await stop_event.wait()
-	print(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: Получен сигнал остановки, завершаю всех ботов...")
+	logging.info(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: Получен сигнал остановки, завершаю всех ботов...")
 
 	for bot in bots:
 		if not bot.is_closed():
 			try:
 				await bot.close()
 			except Exception as e:
-				print(f"Ошибка при закрытии бота: {e}")
+				logging.error(f"Ошибка при закрытии бота: {e}")
 
 	await asyncio.sleep(0.1)
 
@@ -824,9 +815,9 @@ async def main():
 		await asyncio.gather(*bot_tasks, monitor_task)
 
 	except KeyboardInterrupt:
-		print("Боты остановлены по запросу пользователя")
+		logging.info("Боты остановлены по запросу пользователя")
 	except Exception as e:
-		print(f"Произошла критическая ошибка: {e}")
+		logging.error(f"Произошла критическая ошибка: {e}")
 	finally:
 		if admin_bot is not None:
 			await admin_bot.BotOff()

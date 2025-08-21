@@ -1,4 +1,5 @@
 
+import logging
 import disnake
 from disnake.ext import commands
 from disnake.ext import tasks
@@ -34,7 +35,7 @@ class MainRimagochiModule(commands.Cog):
 
 	@commands.Cog.listener()
 	async def on_ready(self):
-		print(f'KrekFunBot rimagochi module activated')
+		logging.info(f'KrekFunBot rimagochi module activated')
 		krekchat = await self.client.fetch_guild(constants["krekchat"])
 		self.me = disnake.utils.get(krekchat.roles, id=constants["me"])
 
@@ -54,7 +55,7 @@ class MainRimagochiModule(commands.Cog):
 	async def RimagochiPlayerProfileSub(self, ctx: disnake.AppCmdInter,
 										member: disnake.Member = commands.Param(description="Чей профиль хотите посмотреть?",
 																	name="игрок", default=None)):
-		if member == None:
+		if member is None:
 			member = ctx.author
 		async with self.DataBaseManager.session() as session:
 			if member == ctx.author:
@@ -62,7 +63,8 @@ class MainRimagochiModule(commands.Cog):
 			else:
 				user = await session.get(self.DataBaseManager.models['rimagochi_users'].m, member.id)
 				if user is None:
-					await self.client.ErrorOutHelper(send_function = ctx.response.send_message, err_name = "Ошибка профиля", thumbnail = member.avatar).out(d=f"Этот пользователь скрывает свои данные")
+					err_embed = self.client.ErrEmbed(title = "Ошибка профиля", thumbnail = member.avatar, description = f"Пользователь не найден")
+					await ctx.response.send_message(embed = err_embed)
 					return
 			async with session.begin():
 				async with self.DataBaseManager.models['rimagochi_users'] as rimagochi_users_model:
@@ -74,13 +76,20 @@ class MainRimagochiModule(commands.Cog):
 					)
 					user = (await session.execute(stmt)).scalars().first()
 
-					if member != ctx.author and user.settings['hide_the_animals'] and (not self.client.me in ctx.author.roles):
-						await self.client.ErrorOutHelper(send_function = ctx.response.send_message, err_name = "Ошибка профиля", thumbnail = member.avatar).out(d=f"Этот пользователь скрывает свои данные")
-						return
+					if not isinstance(ctx.author, disnake.Member):
+						if (member != ctx.author and user.settings['hide_the_animals']):
+							err_embed = self.client.ErrEmbed(title = "Ошибка профиля", thumbnail = member.avatar, description = f"Этот пользователь скрывает свои данные")
+							await ctx.response.send_message(embed = err_embed)
+							return
+					else:
+						if (member != ctx.author and user.settings['hide_the_animals']) and (not self.client.me in ctx.author.roles):
+							err_embed = self.client.ErrEmbed(title = "Ошибка профиля", thumbnail = member.avatar, description = f"Этот пользователь скрывает свои данные")
+							await ctx.response.send_message(embed = err_embed)
+							return
 					await ctx.response.defer(ephemeral = user.settings['hide_the_animals'])
 
 					strength = await self.client.CalculateRimagochiBattleStrength(user.battle_slots_animals)
-					embed = disnake.Embed(title=f"", description=f"### Профиль игрока {member.mention}", colour=0x2F3136)
+					embed = self.client.InfoEmbed(title=f"", description=f"### Профиль игрока {member.mention}")
 					embed.set_thumbnail(url=member.avatar)
 					embed.add_field(name=f"Победы в битвах", value=f"{user.wins}", inline=False)
 					embed.add_field(name=f"Cила отряда", value=f"{strength}", inline=True)
@@ -111,7 +120,8 @@ class MainRimagochiModule(commands.Cog):
 			@disnake.ui.button(label="1", style=disnake.ButtonStyle.primary)
 			async def button1_callback(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
 				if ctx.author != inter.author:
-					await self.client.ErrorOutHelper(send_function = inter.response.send_message, err_name = "Ошибка доступа", ephemeral = True).out(d=f"Вы не можете менять настройки другого пользователя")
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = f"Вы не можете менять настройки другого пользователя")
+					await inter.response.send_message(embed=err_embed, ephemeral=True)
 					return
 				await inter.response.defer()
 				self.settings['hide_the_animals'] = not self.settings['hide_the_animals']
@@ -121,7 +131,8 @@ class MainRimagochiModule(commands.Cog):
 			@disnake.ui.button(label="2", style=disnake.ButtonStyle.primary)
 			async def button2_callback(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
 				if ctx.author != inter.author:
-					await self.client.ErrorOutHelper(send_function = inter.response.send_message, err_name = "Ошибка доступа", ephemeral = True).out(d=f"Вы не можете менять настройки другого пользователя")
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = f"Вы не можете менять настройки другого пользователя")
+					await inter.response.send_message(embed=err_embed, ephemeral=True)
 					return
 				await inter.response.defer()
 				self.settings['always_use_crumbs_for_feeding'] = not self.settings['always_use_crumbs_for_feeding']
@@ -131,7 +142,8 @@ class MainRimagochiModule(commands.Cog):
 			@disnake.ui.button(label="3", style=disnake.ButtonStyle.primary)
 			async def button3_callback(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
 				if ctx.author != inter.author:
-					await self.client.ErrorOutHelper(send_function = inter.response.send_message, err_name = "Ошибка доступа", ephemeral = True).out(d=f"Вы не можете менять настройки другого пользователя")
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = f"Вы не можете менять настройки другого пользователя")
+					await inter.response.send_message(embed=err_embed, ephemeral=True)
 					return
 				await inter.response.defer()
 				self.settings['accept_the_challenge'] = not self.settings['accept_the_challenge']
@@ -149,7 +161,7 @@ class MainRimagochiModule(commands.Cog):
 				await ctx.edit_original_message(view=None)
 
 		def SettingsEmbedMaker(settings):
-			embed = disnake.Embed(title=f"Глобальные настройки", description=f'')
+			embed = self.client.InfoEmbed(title=f"Глобальные настройки", description=f'')
 			embed.set_thumbnail(url=ctx.author.avatar)
 			embed.add_field(name=f"1) Скрывать свои данные", value="Отключено" if not settings['hide_the_animals'] else "Включено", inline=False)
 			embed.add_field(name=f"2) Всегда использовать крошки для кормления животных", value="Отключено" if not settings['always_use_crumbs_for_feeding'] else "Включено", inline=False)
@@ -179,7 +191,7 @@ class MainRimagochiModule(commands.Cog):
 
 	@OpenGachaSlash.sub_command(description="После открытия капсулы, вы получаете боевого питомца", name="капсулу")
 	async def OpenGachaSub(self, ctx: disnake.AppCmdInter,
-								capsule: int = commands.Param(description="Название капсулы",
+								capsule_id: int = commands.Param(description="Название капсулы",
 																	name="капсула",
 																	choices=[disnake.OptionChoice(name=f"{i['name']} - {i['cost']} крошек", value=i['id']) for i in rimagochi_capsules.values()])):
 		def get_random_rarity(chances):
@@ -207,11 +219,11 @@ class MainRimagochiModule(commands.Cog):
 				user = (await session.execute(stmt)).scalars().first()
 
 				await ctx.response.defer(ephemeral = user.rimagochi_account.settings['hide_the_animals'])
-				error_helper = self.client.ErrorOutHelper(send_function = ctx.edit_original_message, err_name = "Ошибка открытия капсулы")
-				capsule = rimagochi_capsules[capsule]
+				err_embed = self.client.ErrEmbed(err_func = ctx.edit_original_message, title = "Ошибка открытия капсулы")
+				capsule = rimagochi_capsules[capsule_id]
 
 				if user.crumbs < capsule['cost']:
-					await error_helper.out(d=f"Для открытия этой капсулы необходимо иметь {capsule['cost']} крошек")
+					await err_embed.send(f"Для открытия этой капсулы необходимо иметь {capsule['cost']} крошек")
 					return
 
 				timed_animals = {}
@@ -236,7 +248,7 @@ class MainRimagochiModule(commands.Cog):
 
 				new_animal_id = new_animal.id
 
-				embed = disnake.Embed(title=f"{rarity['emoji']} {animal['name'].capitalize()} ({(chance*100):.02f}%)", description=f"{animal['description']}", colour=0x2F3136)
+				embed = self.client.InfoEmbed(title=f"{rarity['emoji']} {animal['name'].capitalize()} ({(chance*100):.02f}%)", description=f"{animal['description']}", colour=0x2F3136)
 				embed.set_thumbnail(url = animal['params']['image_url'])
 
 		class SlaughterView(disnake.ui.View):
@@ -248,7 +260,8 @@ class MainRimagochiModule(commands.Cog):
 			@disnake.ui.button(label="Оставить", style=disnake.ButtonStyle.success, emoji="<:A_risworld_rislove:759009763840622622>")
 			async def button1_callback(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
 				if ctx.author != inter.author:
-					await self.client.ErrorOutHelper(send_function = inter.response.send_message, err_name = "Ошибка доступа", ephemeral = True).out(d=f"Вы не можете выбирать за другого игрока")
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = f"Вы не можете выбирать за другого игрока")
+					await inter.response.send_message(embed=err_embed, ephemeral = True)
 					return
 				self.stop()
 				await self.on_timeout()
@@ -256,7 +269,8 @@ class MainRimagochiModule(commands.Cog):
 			@disnake.ui.button(label="Забить", style=disnake.ButtonStyle.danger, emoji="<:A_risworld_risantilove:760082727356727297>")
 			async def button2_callback(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
 				if ctx.author != inter.author:
-					await self.client.ErrorOutHelper(send_function = inter.response.send_message, err_name = "Ошибка доступа", ephemeral = True).out(d=f"Вы не можете выбирать за другого игрока")
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = f"Вы не можете выбирать за другого игрока")
+					await inter.response.send_message(embed=err_embed, ephemeral = True)
 					return
 				await ctx.edit_original_message(view=None)
 				self.stop()
@@ -270,7 +284,8 @@ class MainRimagochiModule(commands.Cog):
 						new_animal = (await session.execute(stmt)).scalars().first()
 
 						if new_animal is None:
-							await self.client.ErrorOutHelper(send_function = inter.response.send_message, err_name = "Ошибка операции", ephemeral = True).out(d=f"Животное не найдено")
+							err_embed = self.client.ErrEmbed(title = "Ошибка операции", description = f"Животное не найдено")
+							await inter.response.send_message(embed=err_embed, ephemeral = True)
 							await self.on_timeout()
 							return
 
@@ -290,7 +305,7 @@ class MainRimagochiModule(commands.Cog):
 						await session.delete(new_animal)
 						user.rimagochi_account.items = items
 
-				embed = disnake.Embed(title=f"~~{rarity['emoji']} {animal['name'].capitalize()} ({(chance*100):.02f}%)~~", description=",\n".join(f"{i} - {receiveditems[i]}" for i in receiveditems.keys()), colour=0x2F3136)
+				embed = self.client.InfoEmbed(title=f"~~{rarity['emoji']} {animal['name'].capitalize()} ({(chance*100):.02f}%)~~", description=",\n".join(f"{i} - {receiveditems[i]}" for i in receiveditems.keys()), colour=0x2F3136)
 				embed.set_thumbnail(url = "https://static.wikia.nocookie.net/rimworld/images/a/ad/Мясо.png/revision/latest?cb=20190130152311&path-prefix=ru")
 				await ctx.edit_original_message(embed=embed)
 
@@ -321,10 +336,10 @@ class MainRimagochiModule(commands.Cog):
 				user = (await session.execute(stmt)).scalars().first()
 
 				await ctx.response.defer(ephemeral = user.rimagochi_account.settings['hide_the_animals'])
-				error_helper = self.client.ErrorOutHelper(send_function = ctx.edit_original_message, err_name = "Ошибка продажи")
+				err_embed = self.client.ErrEmbed(err_func = ctx.edit_original_message, title = "Ошибка продажи")
 
 				if not (str(item) in user.rimagochi_account.items.keys() and user.rimagochi_account.items[str(item)] >= num):
-					await error_helper.out(d=f"У вас недостаточно {rimagochi_items[item]['name']}")
+					await err_embed.send(f"У вас недостаточно {rimagochi_items[item]['name']}")
 					return
 				items = copy.deepcopy(user.rimagochi_account.items)
 				items[str(item)] -= num
@@ -333,7 +348,7 @@ class MainRimagochiModule(commands.Cog):
 				history_write = self.DataBaseManager.models['transaction_history_crumbs'].m(recipient_id = ctx.author.id, amount = num * rimagochi_items[item]["sell_cost"], description = f"Продажа {rimagochi_items[item]['name']}({num} шт)")
 				session.add(history_write)
 
-				embed = disnake.Embed(title=f"{rimagochi_items[item]['name'].capitalize()}(x{num}) продано! Вы получили {num * rimagochi_items[item]['sell_cost']} крошек", description=f"", colour=0x2F3136)
+				embed = self.client.InfoEmbed(title=f"{rimagochi_items[item]['name'].capitalize()}(x{num}) продано! Вы получили {num * rimagochi_items[item]['sell_cost']} крошек", description=f"", colour=0x2F3136)
 				embed.set_thumbnail(url=ctx.author.avatar)
 				await ctx.edit_original_message(embed=embed)
 
@@ -351,9 +366,9 @@ class MainRimagochiModule(commands.Cog):
 
 	@ShopSlash.sub_command(name="генов", description="Купите гены, чтобы улучшить ваших зверей! Информация о генах: \"/информация гены\"")
 	async def GenesShopSub(self, ctx: disnake.AppCmdInter,
-							gene: int = commands.Param(description="Какой ген желаете приобрести?", name="ген",
+							gene_id: int = commands.Param(description="Какой ген желаете приобрести?", name="ген",
 														choices=[disnake.OptionChoice(name=f"{i['name']} - {i['cost']} крошек", value=i['id']) for i in rimagochi_genes.values()])):
-		gene = rimagochi_genes[gene]
+		gene = rimagochi_genes[gene_id]
 
 		async with self.DataBaseManager.session() as session:
 			await self.client.RimagochiUserUpdate(member = ctx.author, session = session)
@@ -366,8 +381,8 @@ class MainRimagochiModule(commands.Cog):
 				await ctx.response.defer(ephemeral = user.rimagochi_account.settings['hide_the_animals'])
 
 				if user.crumbs < gene['cost']:
-					error_helper = self.client.ErrorOutHelper(send_function = ctx.edit_original_message, err_name = "Ошибка покупки гена")
-					await error_helper.out(d=f"Для покупки этого гена необходимо иметь {gene['cost']} крошек")
+					err_embed = self.client.ErrEmbed(title = "Ошибка покупки гена", description = f"Для покупки этого гена необходимо иметь {gene['cost']} крошек")
+					await ctx.edit_original_message(err_embed)
 					return
 
 				genes = copy.deepcopy(user.rimagochi_account.genes)
@@ -380,7 +395,7 @@ class MainRimagochiModule(commands.Cog):
 				history_write = self.DataBaseManager.models['transaction_history_crumbs'].m(sender_id = ctx.author.id, amount = gene['cost'], description = f"Покупка гена \"{gene['name']}\"")
 				session.add(history_write)
 
-				embed = disnake.Embed(title=f"Ген \"{gene['name']}\" успешно приобретён!", description=f"Описание:\n{gene['description']}", colour=0x2F3136)
+				embed = self.client.InfoEmbed(title=f"Ген \"{gene['name']}\" успешно приобретён!", description=f"Описание:\n{gene['description']}", colour=0x2F3136)
 				embed.set_thumbnail(url = "https://static.wikia.nocookie.net/rimworld/images/f/fc/GeneBackground_Xenogene.png/revision/latest?cb=20221216070153&path-prefix=ru")
 				await ctx.edit_original_message(embed=embed)
 
@@ -452,7 +467,7 @@ class MainRimagochiModule(commands.Cog):
 				if crumbs_amout!=0:
 					history_write = self.DataBaseManager.models['transaction_history_crumbs'].m(sender_id = ctx.author.id, amount = crumbs_amout, description = f"Корм для " + ", ".join(feeded_animals))
 					session.add(history_write)
-				embed = disnake.Embed(title=f"Всего удалось потратить {crumbs_amout:.0f} крошек на {len(feeded_animals)} животных.", description="", colour=0x2F3136)
+				embed = self.client.InfoEmbed(title=f"Всего удалось потратить {crumbs_amout:.0f} крошек на {len(feeded_animals)} животных.", description="", colour=0x2F3136)
 				stmt = self.DataBaseManager.select(self.DataBaseManager.models['rimagochi_users'].m.settings).where(self.DataBaseManager.models['rimagochi_users'].m.id == ctx.author.id)
 				settings = (await session.execute(stmt)).scalars().first()
 				if not settings['hide_the_animals']: embed.description = f"Покормлены:\n"+",\n".join(feeded_animals)
@@ -483,13 +498,19 @@ class MainRimagochiModule(commands.Cog):
 			async with session.begin():
 				user = await session.get(self.DataBaseManager.models['rimagochi_users'].m, member.id)
 
-				if user.settings['hide_the_animals'] and member != ctx.author and (not self.client.me in ctx.author.roles):
-					error_helper = self.client.ErrorOutHelper(send_function = ctx.response.send_message, err_name = "Ошибка инвентаря", thumbnail = member.avatar)
-					await error_helper.out(d=f"Пользователь {member.mention} скрыл свой инвентарь")
-					return
+				err_embed = self.client.ErrEmbed(err_func = ctx.response.send_message, title = "Ошибка инвентаря", description = f"Пользователь {member.mention} скрыл свой инвентарь")
+				if isinstance(ctx.author, disnake.Member):
+					if user.settings['hide_the_animals'] and member != ctx.author and (not self.client.me in ctx.author.roles):
+						await err_embed.send()
+						return
+				else:
+					if user.settings['hide_the_animals'] and member != ctx.author:
+						await err_embed.send()
+						return
+					
 				await ctx.response.defer(ephemeral = user.settings['hide_the_animals'])
 
-				embed = disnake.Embed(title=f"", description=f"### Инвентарь {member.mention}\n", colour=0x2F3136)
+				embed = self.client.InfoEmbed(title=f"", description=f"### Инвентарь {member.mention}\n", colour=0x2F3136)
 				embed.set_thumbnail(url=member.avatar)
 
 				if len([i for i in user.items.keys() if user.items[i]>0]) > 0:
@@ -528,14 +549,14 @@ class MainRimagochiModule(commands.Cog):
 				user.animals.sort(key=lambda animal: animal.creation_time, reverse=True)
 
 				await ctx.response.defer(ephemeral = user.settings['hide_the_animals'])
-				error_helper = self.client.ErrorOutHelper(send_function = ctx.edit_original_message, err_name = "Ошибка профиля", thumbnail = member.avatar)
+				err_embed = self.client.ErrEmbed(err_func = ctx.edit_original_message, title = "Ошибка профиля", thumbnail = member.avatar)
 
-				if user.settings['hide_the_animals'] and member != ctx.author and (not self.client.me in ctx.author.roles):
-					await error_helper.out(d=f"Пользователь {member.mention} скрыл свой профиль")
+				if user.settings['hide_the_animals'] and member != ctx.author and (isinstance(ctx.author, disnake.User) or not self.client.me in ctx.author.roles):
+					await err_embed.send(f"Пользователь {member.mention} скрыл свой профиль")
 					return
 
 				if len(user.animals) == 0:
-					await error_helper.out(d=f"Кажется, тут зверей пока нет")
+					await err_embed.send(f"Кажется, тут зверей пока нет")
 					return
 
 		async def AnimalsEmbeder(num: int, review = False):
@@ -543,7 +564,7 @@ class MainRimagochiModule(commands.Cog):
 			animal_data = user.animals[num-1]
 			animal = rimagochi_animals[animal_data.model_animal_id]
 
-			embed = disnake.Embed(title=f"Инвентарь {member.name}", description=f"\n### {animal['params']['rarity']['emoji']} {animal['name'].capitalize()}", colour=0x2F3136)
+			embed = self.client.InfoEmbed(title=f"Инвентарь {member.name}", description=f"\n### {animal['params']['rarity']['emoji']} {animal['name'].capitalize()}", colour=0x2F3136)
 			embed.set_footer(text = f"id: {animal_data.id}")
 			embed.set_thumbnail(url=animal['params']['image_url'])
 			animal = copy.deepcopy(animal)
@@ -604,7 +625,7 @@ class MainRimagochiModule(commands.Cog):
 			return animal, animal_data, user.settings
 
 		async def feed_animal(inter, animal, animal_id, food = None):
-			error_helper = self.client.ErrorOutHelper(send_function = inter.response.send_message, err_name = "Ошибка инвентаря", ephemeral=True)
+			err_embed = self.client.ErrEmbed(err_func = inter.response.send_message, err_func_kwargs = {'ephemeral': True}, title = "Ошибка инвентаря")
 			async with self.DataBaseManager.session() as session:
 				async with session.begin():
 					stmt = self.DataBaseManager.select(rimagochi_users_model).options(
@@ -618,11 +639,11 @@ class MainRimagochiModule(commands.Cog):
 					animal = copy.deepcopy(animal)
 
 					if animal_data.feed_today_count >= 4 and (now() - animal_data.first_today_feed_time) < (24 * 60 * 60):
-						await error_helper.out(d=f"Вы уже покормили своего зверя 4 раза за сегодня, обновление лимитов будет <t:{int(animal_data.first_today_feed_time + (24 * 60 * 60))}:R>")
+						await err_embed.send(f"Вы уже покормили своего зверя 4 раза за сегодня, обновление лимитов будет <t:{int(animal_data.first_today_feed_time + (24 * 60 * 60))}:R>")
 						return
 
 					if (now() - animal_data.last_feeding_time) < (3 * 60 * 60):
-						await error_helper.out(d=f"Следующий раз можно покормить <t:{int(animal_data.last_feeding_time + (3 * 60 * 60))}:R>")
+						await err_embed.send(f"Следующий раз можно покормить <t:{int(animal_data.last_feeding_time + (3 * 60 * 60))}:R>")
 						return
 
 					genes = []
@@ -638,14 +659,14 @@ class MainRimagochiModule(commands.Cog):
 					if food:
 						items = copy.deepcopy(rimagochi_user.items)
 						if (not str(food['id']) in items.keys()) or items[str(food['id'])] < hunger / 10:
-							await error_helper.out(d=f"У вас недостаточно {food['name']}")
+							await err_embed.send(f"У вас недостаточно {food['name']}")
 							return
 
 						items[str(food['id'])] = items[str(food['id'])] - hunger / 10
 						rimagochi_user.items = items
 					else:
 						if rimagochi_user.user.crumbs < hunger:
-							await error_helper.out(d=f"У вас недостаточно крошек")
+							await err_embed.send(f"У вас недостаточно крошек")
 							return
 
 						rimagochi_user.user.crumbs -= hunger
@@ -661,7 +682,7 @@ class MainRimagochiModule(commands.Cog):
 					animal_data.last_feeding_time = now()
 					animal_data.experience, animal_data.level, remains = self.client.AnimalLevelAdder(animal_data.experience+100, animal_data.level)
 
-					embed = disnake.Embed(description=f"{animal['name'].capitalize()} покормлен, до следующего уровня ему осталось всего {remains} опыта", title=f"", colour=0x2F3136)
+					embed = self.client.InfoEmbed(description=f"{animal['name'].capitalize()} покормлен, до следующего уровня ему осталось всего {remains} опыта", title=f"", colour=0x2F3136)
 					await inter.response.send_message(embed = embed, ephemeral=True)
 
 					nonlocal user
@@ -714,7 +735,8 @@ class MainRimagochiModule(commands.Cog):
 			@disnake.ui.button(label="Покормить", style=disnake.ButtonStyle.success, row=1)
 			async def feed_modal(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
 				if member != inter.author:
-					await self.client.ErrorOutHelper(send_function = inter.response.send_message, ephemeral=True).out(n="Ошибка доступа", d=f"Нельзя кормить чужих животных!!!")
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = f"Нельзя кормить чужих животных!!!")
+					await inter.response.send_message(embed=err_embed, ephemeral=True)
 					return
 				if len(self.animal["params"]["can_eate"])==0 or self.settings['always_use_crumbs_for_feeding']:
 					await feed_animal(inter, self.animal, self.animal_data.id)
@@ -728,7 +750,8 @@ class MainRimagochiModule(commands.Cog):
 			@disnake.ui.button(label="Забить", style=disnake.ButtonStyle.danger, row=1)
 			async def kill_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
 				if member != inter.author:
-					await self.client.ErrorOutHelper(send_function = inter.response.send_message, ephemeral=True).out(n="Ошибка доступа", d=f"Нельзя убивать чужих животных!!!")
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = f"Нельзя убивать чужих животных!!!")
+					await inter.response.send_message(embed=err_embed, ephemeral=True)
 					return
 				await inter.response.defer()
 				self.stop()
@@ -741,16 +764,17 @@ class MainRimagochiModule(commands.Cog):
 						super().__init__(timeout = 60)
 						self.add_item(disnake.ui.Button(label="Забить!!!", style=disnake.ButtonStyle.danger, custom_id="accept"))
 						self.add_item(disnake.ui.Button(label="Нет, отменяй", style=disnake.ButtonStyle.success, custom_id="reject"))
-					async def interaction_check(self, inter):
-						if member != inter.author:
-							await self.client.ErrorOutHelper(send_function = inter.response.send_message, ephemeral=True).out(n="Ошибка доступа", d=f"Нельзя убивать чужих животных!!!")
-							return
-						if inter.data.custom_id == "accept":
+					async def interaction_check(self, interaction):
+						if member != interaction.author:
+							err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = f"Нельзя убивать чужих животных!!!")
+							await interaction.response.send_message(embed=err_embed, ephemeral=True)
+							return True
+						if interaction.data.custom_id == "accept":
 							async with self.DataBaseManager.session() as session:
 								async with session.begin():
 									animal = await session.get(rimagochi_animals_model, self.animal_data.id, with_for_update = True)
 									if animal is None:
-										return
+										return True
 									await session.delete(animal)
 
 									user = await session.get(rimagochi_users_model, member.id, with_for_update = True)
@@ -764,27 +788,29 @@ class MainRimagochiModule(commands.Cog):
 										items[str(item['item']['id'])] += receive
 									user.items = items
 
-									embed = disnake.Embed(title=f"~~{self.animal['name'].capitalize()}~~", description=",\n".join(f"{i} - {receiveditems[i]}" for i in receiveditems.keys()), colour=0x2F3136)
+									embed = self.client.InfoEmbed(title=f"~~{self.animal['name'].capitalize()}~~", description=",\n".join(f"{i} - {receiveditems[i]}" for i in receiveditems.keys()), colour=0x2F3136)
 									embed.set_thumbnail(url = "https://static.wikia.nocookie.net/rimworld/images/a/ad/Мясо.png/revision/latest?cb=20190130152311&path-prefix=ru")
 									await ctx.edit_original_message(embed=embed, view=None)
 
-						if inter.data.custom_id == "reject":
-							await inter.response.defer()
-							embed = disnake.Embed(title=f"", description=f"В этот раз {self.animal['name']} остался в живых", colour=0x2F3136)
+						if interaction.data.custom_id == "reject":
+							await interaction.response.defer()
+							embed = self.client.InfoEmbed(title=f"", description=f"В этот раз {self.animal['name']} остался в живых", colour=0x2F3136)
 							await ctx.edit_original_message(embed=embed, view=None)
 						
 						self.stop()
+						return False
 					async def on_timeout(self):
-						embed = disnake.Embed(title=f"Выбор не сделан", description=f"В этот раз {self.animal['name']} остался в живых", colour=0x2F3136)
+						embed = self.client.InfoEmbed(title=f"Выбор не сделан", description=f"В этот раз {self.animal['name']} остался в живых", colour=0x2F3136)
 						await ctx.edit_original_message(embed=embed, view=None)
 
-				embed = disnake.Embed(title=f"Вы вменяемы?", description=f"{self.animal['name']} умрёт и вы потеряете все гены и опыт с него!!!", colour=0x2F3136)
+				embed = self.client.WarnEmbed(title=f"Вы вменяемы?", description=f"{self.animal['name']} умрёт и вы потеряете все гены и опыт с него!!!", colour=0x2F3136)
 				await ctx.edit_original_message(embed=embed, view=MixedView())
 
 			@disnake.ui.button(label = ".", style=disnake.ButtonStyle.primary, row=1)
 			async def battle_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
 				if member != inter.author:
-					await self.client.ErrorOutHelper(send_function = inter.response.send_message, ephemeral=True).out(n="Ошибка доступа", d=f"Вы не можете управлять чужим отрядом")
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = f"Вы не можете управлять чужим отрядом")
+					await inter.response.send_message(embed=err_embed, ephemeral=True)
 					return
 				async with self.DataBaseManager.session() as session:
 					async with session.begin():
@@ -805,7 +831,7 @@ class MainRimagochiModule(commands.Cog):
 
 						else:
 							if busy_battle_slots + self.animal['params']['required_slots'] > rimagochi_constants['max_battle_slots']:
-								embed = disnake.Embed(title=f"у вас нет столько свободного места в отряде!!!", description=f"", colour=0x2F3136)
+								embed = self.client.InfoEmbed(title=f"у вас нет столько свободного места в отряде!!!", description=f"", colour=0x2F3136)
 								await inter.response.send_message(embed=embed, ephemeral=True)
 								return
 							animal_data.in_battle_slots = True
@@ -827,7 +853,8 @@ class MainRimagochiModule(commands.Cog):
 			@disnake.ui.button(label="Применить ген", style=disnake.ButtonStyle.primary, row=1)
 			async def apply_genes_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
 				if member != inter.author:
-					await self.client.ErrorOutHelper(send_function = inter.response.send_message, ephemeral=True).out(n="Ошибка доступа", d=f"Вы не можете управлять чужим отрядом")
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = f"Вы не можете управлять чужим отрядом")
+					await inter.response.send_message(embed=err_embed, ephemeral=True)
 					return
 				class ApplyGenesView(disnake.ui.View):
 					client = self.client
@@ -844,8 +871,11 @@ class MainRimagochiModule(commands.Cog):
 						))
 					async def interaction_check(self, interaction: disnake.MessageInteraction):
 						if member != inter.author:
-							await self.client.ErrorOutHelper(send_function = inter.response.send_message, ephemeral=True).out(n="Ошибка доступа", d=f"Вы не можете управлять чужим отрядом")
-							return
+							err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = f"Вы не можете управлять чужим отрядом")
+							await inter.response.send_message(embed=err_embed, ephemeral=True)
+							return True
+						if interaction.data.values is None:
+							raise ValueError("rimagochi.py: interaction.data.values None type")
 						selected_value = interaction.data.values[0]
 
 						async with self.DataBaseManager.session() as session:
@@ -856,8 +886,9 @@ class MainRimagochiModule(commands.Cog):
 								suitable_genes = [i for i in rimagochi_user.genes.keys() if (not int(i) in animal_data.genes) and rimagochi_user.genes[i] > 0]
 
 								if not selected_value in suitable_genes:
-									await self.client.ErrorOutHelper(send_function = inter.response.send_message, ephemeral=True).out(n="Ошибка применения генов", d="У вас больше нет этого гена или ген уже был применён")
-									return
+									err_embed = self.client.ErrEmbed(title = "Ошибка применения генов", description = "У вас больше нет этого гена или ген уже был применён")
+									await inter.response.send_message(embed=err_embed, ephemeral=True)
+									return True
 
 								animal_genes = copy.deepcopy(self.animal_data.genes)
 								animal_genes.append(int(selected_value))
@@ -869,12 +900,14 @@ class MainRimagochiModule(commands.Cog):
 
 								suitable_genes.remove(selected_value)
 
-						embed = disnake.Embed(title=f"", description=f"В животное `{self.animal['name']}` успешно вставлен ген {rimagochi_genes[int(selected_value)]['name']}", colour=0x2F3136)
+						embed = self.client.InfoEmbed(title=f"", description=f"В животное `{self.animal['name']}` успешно вставлен ген {rimagochi_genes[int(selected_value)]['name']}", colour=0x2F3136)
 						await interaction.response.send_message(embed = embed, ephemeral=True)
 						if len(suitable_genes) != 0:
 							await ctx.edit_original_message(view=ApplyGenesView(suitable_genes))
 						else:
 							await ctx.edit_original_message(view=None)
+						
+						return False
 
 					async def on_timeout(self):
 						await ctx.edit_original_message(view=None)
@@ -887,18 +920,20 @@ class MainRimagochiModule(commands.Cog):
 						suitable_genes = [i for i in rimagochi_user.genes.keys() if (not int(i) in animal_data.genes) and rimagochi_user.genes[i] > 0]
 
 						if len(suitable_genes) == 0:
-							await self.client.ErrorOutHelper(send_function = inter.response.send_message, ephemeral=True).out(n="Ошибка применения генов", d=f"У вас пока нет генов, которые можно применить на {self.animal['name']}")
+							err_embed = self.client.ErrEmbed(title = "Ошибка применения генов", description = f"У вас пока нет генов, которые можно применить на {self.animal['name']}")
+							await inter.response.send_message(embed=err_embed, ephemeral=True)
 							return
 
 						self.stop()
 						await inter.response.defer()
-						embed = disnake.Embed(title=f"Какие гены хотите применить на животное {self.animal['name']}?", description=f"Будьте внимательны, вернуть использованные генопаки уже не выйдет", colour=0x2F3136)
+						embed = self.client.InfoEmbed(title=f"Какие гены хотите применить на животное {self.animal['name']}?", description=f"Будьте внимательны, вернуть использованные генопаки уже не выйдет", colour=0x2F3136)
 				await ctx.edit_original_message(embed=embed, view=ApplyGenesView(suitable_genes))
 
 			@disnake.ui.button(label="<", style=disnake.ButtonStyle.secondary, row=2)
 			async def backward_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
 				if ctx.author != inter.author:
-					await self.client.ErrorOutHelper(send_function = inter.response.send_message, ephemeral=True).out(n="Ошибка доступа", d=f"Вы не можете управлять чужим инвентарём")
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = f"Вы не можете управлять чужим инвентарём")
+					await inter.response.send_message(embed=err_embed, ephemeral=True)
 					return
 				await inter.response.defer()
 				self.page = max(self.page-1, 1)
@@ -909,7 +944,8 @@ class MainRimagochiModule(commands.Cog):
 			@disnake.ui.button(label=">", style=disnake.ButtonStyle.secondary, row=2)
 			async def forward_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
 				if ctx.author != inter.author:
-					await self.client.ErrorOutHelper(send_function = inter.response.send_message, ephemeral=True).out(n="Ошибка доступа", d=f"Вы не можете управлять чужим инвентарём")
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = f"Вы не можете управлять чужим инвентарём")
+					await inter.response.send_message(embed=err_embed, ephemeral=True)
 					return
 				await inter.response.defer()
 				self.page = min(self.page+1, self.max_page)
@@ -949,9 +985,10 @@ class MainRimagochiModule(commands.Cog):
 																	name="ставка"),
 											member: disnake.Member = commands.Param(description="Кому хотите бросить вызов?",
 																	name="игрок", default=None)):
-		error_helper = self.client.ErrorOutHelper(send_function = ctx.response.send_message, err_name = "Ошибка вызова", ephemeral = True)
+		
+		err_embed = self.client.ErrEmbed(err_func = ctx.response.send_message, err_func_kwargs = {'ephemeral': True}, title = "Ошибка вызова")
 		if ctx.author == member:
-			await error_helper.out(d=f"Нельзя бросить вызов самому себе")
+			await err_embed.send(f"Нельзя бросить вызов самому себе")
 			return
 
 		rimagochi_users_model = self.DataBaseManager.models['rimagochi_users'].m
@@ -965,15 +1002,15 @@ class MainRimagochiModule(commands.Cog):
 				author_user = (await session.execute(stmt)).scalars().first()
 
 				if author_user.user.crumbs < bet:
-					await error_helper.out(d=f"Вам не хватает крошек на такую ставку")
+					await err_embed.send(f"Вам не хватает крошек на такую ставку")
 					return
 
 				if len(author_user.battle_slots_animals)==0:
-					await error_helper.out(d=f"У вас нет экипированных зверей")
+					await err_embed.send(f"У вас нет экипированных зверей")
 					return
 
 				if not author_user.settings['accept_the_challenge']:
-					await error_helper.out(d=f"Чтобы бросить вызов, у вас должна быть включена настройка 'получать вызовы'")
+					await err_embed.send(f"Чтобы бросить вызов, у вас должна быть включена настройка 'получать вызовы'")
 					return
 
 				if not member is None:
@@ -984,19 +1021,19 @@ class MainRimagochiModule(commands.Cog):
 					member_user = (await session.execute(stmt)).scalars().first()
 
 					if member_user is None:
-						await error_helper.out(d=f"У этого пользователя пока нет профиля")
+						await err_embed.send(f"У этого пользователя пока нет профиля")
 						return
 
 					if member_user.user.crumbs < bet:
-						await error_helper.out(d=f"Вашему оппоненту не хватает крошек на такую ставку")
+						await err_embed.send(f"Вашему оппоненту не хватает крошек на такую ставку")
 						return
 
 					if len(member_user.battle_slots_animals)==0:
-						await error_helper.out(d=f"У вашего оппонента нет экипированных зверей")
+						await err_embed.send(f"У вашего оппонента нет экипированных зверей")
 						return
 
 					if not member_user.settings['accept_the_challenge']:
-						await error_helper.out(d=f"Этот пользователь не принимает вызовы")
+						await err_embed.send(f"Этот пользователь не принимает вызовы")
 						return
 
 		class ButtonsView(disnake.ui.View):
@@ -1011,13 +1048,14 @@ class MainRimagochiModule(commands.Cog):
 
 			@disnake.ui.button(label="Принять вызов", style=disnake.ButtonStyle.success, row=1)
 			async def take_challenge(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
-				error_helper = self.client.ErrorOutHelper(send_function = inter.response.send_message, err_name = "Ошибка", ephemeral = True)
+				
+				err_embed = self.client.ErrEmbed(err_func = inter.response.send_message, err_func_kwargs = {'ephemeral': True}, title = "Ошибка вызова")
 				if self.member:
 					if self.member != inter.author:
-						await error_helper.out(d=f"Этот вызов был брошен не вам, к сожалению, вы не сможете его принять")
+						await err_embed.send(f"Этот вызов был брошен не вам, к сожалению, вы не сможете его принять")
 						return
 				elif inter.author == self.author:
-					await error_helper.out(d=f"Вы не можете принять свой же вызов!!!")
+					await err_embed.send(f"Вы не можете принять свой же вызов!!!")
 					return
 				else:
 					self.member = inter.author
@@ -1037,26 +1075,27 @@ class MainRimagochiModule(commands.Cog):
 						member_user = (await session.execute(stmt)).scalars().first()
 
 						if member_user is None:
-							await error_helper.out(d=f"У вас пока нет профиля, напишите хотя бы одно сообщение")
+							await err_embed.send(f"У вас пока нет профиля, напишите хотя бы одно сообщение")
 							return
 
 						if not member_user.settings['accept_the_challenge']:
-							await error_helper.out(d=f"Чтобы принять вызов, у вас должна быть включена настройка 'получать вызовы'")
+							await err_embed.send(f"Чтобы принять вызов, у вас должна быть включена настройка 'получать вызовы'")
 							return
 
 						if member_user.user.crumbs < self.bet:
-							await error_helper.out(d=f"Вам не хватает крошек, чтобы принять этот вызов")
+							await err_embed.send(f"Вам не хватает крошек, чтобы принять этот вызов")
 							return
 
 						if len([animal for animal in member_user.animals if animal.in_battle_slots]) == 0:
-							await error_helper.out(d=f"У вас нет экипированных зверей")
+							await err_embed.send(f"У вас нет экипированных зверей")
 							return
 
 						self.stop()
 						await ctx.edit_original_message("", view = None)
 
 						if author_user.user.crumbs < self.bet:
-							await self.client.ErrorOutHelper(send_function = ctx.edit_original_message, err_name = "Ошибка").out(d=f"{self.author.mention} не хватает крошек на ставку, бой отменяется")
+							err_embed = self.client.ErrEmbed(title = err_embed.title, description = f"{self.author.mention} не хватает крошек на ставку, бой отменяется")
+							await ctx.edit_original_message(embed=err_embed)
 							return
 
 						players_list = [self.author, self.member]
@@ -1083,11 +1122,11 @@ class MainRimagochiModule(commands.Cog):
 				await inter.response.defer()
 
 				for i in range(10, 0, -1):
-					embed = disnake.Embed(title=f"", description=f"### Вызов принят {self.member.mention}\nИдёт подсчёт сил и рассчёт победителя...\n-# Результат будет через {i} секунд", colour=0x2F3136)
+					embed = self.client.InfoEmbed(title=f"", description=f"### Вызов принят {self.member.mention}\nИдёт подсчёт сил и рассчёт победителя...\n-# Результат будет через {i} секунд", colour=0x2F3136)
 					embed.set_thumbnail(url="https://media.discordapp.net/attachments/887735863734313000/1357768401195634728/confused-cat-confused.gif?ex=67f167dc&is=67f0165c&hm=bebc160fac83107c143b93c825b926cbf83caf9d5eb56535c4c11ada09e57103&=")
 					await ctx.edit_original_message(embed=embed)
 					await asyncio.sleep(1)
-				embed = disnake.Embed(title=f"", description=f"### Победил {players_list[chosen_player].mention}!\n\nИздалека все могли видеть сражающихся животных:\n"
+				embed = self.client.InfoEmbed(title=f"", description=f"### Победил {players_list[chosen_player].mention}!\n\nИздалека все могли видеть сражающихся животных:\n"
 															 f"На стороне {self.author.mention}: {', '.join(rimagochi_animals[animal.model_animal_id]['name'] for animal in author_user.animals if animal.in_battle_slots)}\n"
 															 f"На стороне {self.member.mention}: {', '.join(rimagochi_animals[animal.model_animal_id]['name'] for animal in member_user.animals if animal.in_battle_slots)}", colour=0x2F3136)
 				embed.set_thumbnail(url=players_list[chosen_player].avatar)
@@ -1096,19 +1135,20 @@ class MainRimagochiModule(commands.Cog):
 			@disnake.ui.button(label="Отменить вызов", style=disnake.ButtonStyle.danger, row=1)
 			async def off_challenge(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
 				if inter.author != self.author:
-					await self.client.ErrorOutHelper(send_function = inter.response.send_message, err_name = "Ошибка доступа", ephemeral = True).out(d=f"Отменить этот вызов может только {self.author.mention}")
+					err_embed = self.client.ErrEmbed(title = "Ошибка доступа", description = f"Отменить этот вызов может только {self.author.mention}")
+					await inter.response.send_message(embed=err_embed, ephemeral = True)
 					return
-				embed = disnake.Embed(title=f"", description=f"### {self.author.mention} отменил вызов на бой", colour=0x2F3136)
+				embed = self.client.InfoEmbed(title=f"", description=f"### {self.author.mention} отменил вызов на бой", colour=0x2F3136)
 				embed.set_thumbnail(url=self.author.avatar)
 				self.stop()
 				await ctx.edit_original_message("", embed = embed, view = None)
 
 			async def on_timeout(self):
-				embed = disnake.Embed(title=f"", description=f"\n### Вызов от {ctx.author.mention}(просрочено)\nВы уже не можете принять вызов, нажав на кнопку ниже.\n-# Ставка `{bet}` крошек", colour=0x2F3136)
+				embed = self.client.InfoEmbed(title=f"", description=f"\n### Вызов от {ctx.author.mention}(просрочено)\nВы уже не можете принять вызов, нажав на кнопку ниже.\n-# Ставка `{bet}` крошек", colour=0x2F3136)
 				embed.set_thumbnail(url=ctx.author.avatar)
 				await ctx.edit_original_message(embed=embed, view=None)
 
-		embed = disnake.Embed(title=f"", description=f"### Вызов от {ctx.author.mention}\nВы можете принять вызов, нажав на кнопку ниже!\n-# Ставка `{bet}` крошек", colour=0x2F3136)
+		embed = self.client.InfoEmbed(title=f"", description=f"### Вызов от {ctx.author.mention}\nВы можете принять вызов, нажав на кнопку ниже!\n-# Ставка `{bet}` крошек", colour=0x2F3136)
 		embed.set_thumbnail(url=ctx.author.avatar)
 		await ctx.response.send_message(f"{member.mention}" if member else None, embed=embed, view = ButtonsView(ctx.author, member, bet))
 
@@ -1124,7 +1164,8 @@ class MainRimagochiModule(commands.Cog):
 	async def InformationSubGroup(self, ctx: disnake.AppCmdInter):
 		pass
 
-	async def animal_autocomplete(inter: disnake.ApplicationCommandInteraction, user_input: str):
+	@staticmethod
+	async def animal_autocomplete(interaction: disnake.ApplicationCommandInteraction, user_input: str):
 		animals = [
 			animal["name"]
 			for animal in rimagochi_animals.values()
@@ -1134,41 +1175,42 @@ class MainRimagochiModule(commands.Cog):
 
 	@InformationSubGroup.sub_command(description="Показывает информацию о выбранном животном", name="животные")
 	async def RimagochiBestiarySub(self, ctx: disnake.AppCmdInter,
-								animal: str = commands.Param(description="Название животного или его ID", name="животное",
+								animal_str: str = commands.Param(description="Название животного или его ID", name="животное",
 										autocomplete=animal_autocomplete)):
 		matches = {}
-		animal = animal.lower()
+		animal_formated = animal_str.lower()
 		finded_flag = False
-		if animal.isnumeric() and int(animal) in rimagochi_animals.keys():
-			animal = rimagochi_animals[int(animal)]
+		animal = {}
+		if animal_formated.isnumeric() and int(animal_formated) in rimagochi_animals.keys():
+			animal = rimagochi_animals[int(animal_formated)]
 			finded_flag = True
 		else:
 			for key, value in rimagochi_animals.items():
-				if animal in value['name'].lower():
+				if animal_formated in value['name'].lower():
 					matches.setdefault(key, value['name'])
-				if animal == value['name'].lower():
+				if animal_formated == value['name'].lower():
 					animal = rimagochi_animals[key]
 					finded_flag = True
 					break
 			if (not finded_flag) and (not matches):
 				for key, value in rimagochi_animals.items():
-					if animal in value['description'].lower():
+					if animal_formated in value['description'].lower():
 						matches.setdefault(key, value['name'])
 		if len(matches)==1 and (not finded_flag):
 			animal = rimagochi_animals[list(matches.keys())[0]]
 			finded_flag = True
 
 		if not finded_flag and len(matches)==0:
-			embed = disnake.Embed(title=f"", description=f"Мы искали как могли, но не смогли найти такого зверя", colour=0x2F3136)
+			embed = self.client.InfoEmbed(title=f"", description=f"Мы искали как могли, но не смогли найти такого зверя", colour=0x2F3136)
 			await ctx.response.send_message(embed = embed)
 			return
 		elif not finded_flag:
-			embed = disnake.Embed(title=f"", description=f"Мы нашли много совпадений, но ничего конкретного, уточните запрос\n-# Найдено совпадений: {', '.join([i for i in matches.values()])}", colour=0x2F3136)
+			embed = self.client.InfoEmbed(title=f"", description=f"Мы нашли много совпадений, но ничего конкретного, уточните запрос\n-# Найдено совпадений: {', '.join([i for i in matches.values()])}", colour=0x2F3136)
 			await ctx.response.send_message(embed = embed)
 			return
 
 		await ctx.response.defer()
-		embed = disnake.Embed(title=f"{animal['name'].capitalize()}", description=f"{animal['description']}", colour=0x2F3136)
+		embed = self.client.InfoEmbed(title=f"{animal['name'].capitalize()}", description=f"{animal['description']}", colour=0x2F3136)
 		embed.set_thumbnail(url = animal['params']['image_url'])
 		embed.set_footer(text = f"id: {animal['id']}")
 		embed.add_field(name=f"Редкость:",
@@ -1199,12 +1241,12 @@ class MainRimagochiModule(commands.Cog):
 
 	@InformationSubGroup.sub_command(description="Показывает информацию о выбранном предмете", name="предметы")
 	async def RimagochiItemsInfoSub(self, ctx: disnake.AppCmdInter,
-								item: str = commands.Param(description="Название предмета",
+								item_id: str = commands.Param(description="Название предмета",
 																	name="предмет",
 																	choices=[disnake.OptionChoice(name=f"{i['name']}", value=str(i['id'])) for i in rimagochi_items.values()])):
-		item = rimagochi_items[int(item)]
+		item = rimagochi_items[int(item_id)]
 		await ctx.response.defer()
-		embed = disnake.Embed(title=f"{item['name'].capitalize()}", description=f"{item['description']}", colour=0x2F3136)
+		embed = self.client.InfoEmbed(title=f"{item['name'].capitalize()}", description=f"{item['description']}", colour=0x2F3136)
 		embed.set_footer(text = f"id: {item['id']}")
 		embed.add_field(name=f"Основные характеристики".center(40, '-'),value=f"",inline=False)
 		embed.add_field(name=f"Стоимость при продаже:",
@@ -1221,12 +1263,12 @@ class MainRimagochiModule(commands.Cog):
 
 	@InformationSubGroup.sub_command(description="Показывает информацию о выбранном генопаке", name="генопаки")
 	async def RimagochiGenesInfoSub(self, ctx: disnake.AppCmdInter,
-								gene: str = commands.Param(description="Название гена",
+								gene_id: str = commands.Param(description="Название гена",
 																	name="ген",
 																	choices=[disnake.OptionChoice(name=f"{i['name']}", value=str(i['id'])) for i in rimagochi_genes.values()])):
-		gene = rimagochi_genes[int(gene)]
+		gene = rimagochi_genes[int(gene_id)]
 		await ctx.response.defer()
-		embed = disnake.Embed(title=f"{gene['name'].capitalize()}", description=f"{gene['description']}", colour=0x2F3136)
+		embed = self.client.InfoEmbed(title=f"{gene['name'].capitalize()}", description=f"{gene['description']}", colour=0x2F3136)
 		embed.set_footer(text = f"id: {gene['id']}")
 		embed.set_thumbnail(url = "https://static.wikia.nocookie.net/rimworld/images/f/fc/GeneBackground_Xenogene.png/revision/latest?cb=20221216070153&path-prefix=ru")
 
@@ -1234,12 +1276,12 @@ class MainRimagochiModule(commands.Cog):
 
 	@InformationSubGroup.sub_command(description="Показывает информацию о выбранной капсуле криптосна", name="капсулы")
 	async def RimagochiCapsuleInfoSub(self, ctx: disnake.AppCmdInter,
-								capsule: str = commands.Param(description="Название капсулы",
+								capsule_id: str = commands.Param(description="Название капсулы",
 																	name="капсула",
 																	choices=[disnake.OptionChoice(name=f"{i['name']}", value=str(i['id'])) for i in rimagochi_capsules.values()])):
-		capsule = rimagochi_capsules[int(capsule)]
+		capsule = rimagochi_capsules[int(capsule_id)]
 		await ctx.response.defer()
-		embed = disnake.Embed(title=f"{capsule['name'].capitalize()}", description=f"Цена: {capsule['cost']}", colour=0x2F3136)
+		embed = self.client.InfoEmbed(title=f"{capsule['name'].capitalize()}", description=f"Цена: {capsule['cost']}", colour=0x2F3136)
 		embed.set_footer(text = f"id: {capsule['id']}")
 		for i in capsule['chances']:
 			embed.add_field(name=f"",value=f"{i['rarity']['emoji']} {i['rarity']['name']} - {i['chance']*100:.02f}%",inline=False)
