@@ -33,7 +33,7 @@ from sqlalchemy.schema import CreateTable
 import gspread
 from google.oauth2.service_account import Credentials
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, force=True, format="%(asctime)s %(name)s %(levelname)s: %(message)s", datefmt="%H:%M:%S")
 
 class AnyBots(commands.Bot):
 	logging = logging
@@ -824,7 +824,7 @@ async def main():
 	except KeyboardInterrupt:
 		logging.info("Боты остановлены по запросу пользователя")
 	except Exception as e:
-		logging.error(f"Произошла критическая ошибка: {e}", exc_info=e)
+		logging.exception(f"Произошла критическая ошибка")
 	finally:
 		if admin_bot is not None:
 			await admin_bot.BotOff()
