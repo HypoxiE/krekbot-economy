@@ -817,7 +817,7 @@ async def main():
 	except KeyboardInterrupt:
 		logging.info("Боты остановлены по запросу пользователя")
 	except Exception as e:
-		logging.error(f"Произошла критическая ошибка: {e}")
+		logging.error(f"Произошла критическая ошибка: {e}", exc_info=e)
 	finally:
 		if admin_bot is not None:
 			await admin_bot.BotOff()
