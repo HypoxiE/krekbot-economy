@@ -7,7 +7,7 @@ docs/
 __pycache__/
 *.pyc
 
+backups/
+
 .env
-.secrets
 secrets/
-src/backups/

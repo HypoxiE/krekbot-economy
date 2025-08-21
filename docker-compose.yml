@@ -1,7 +1,6 @@
-version: '3.8'
 
 services:
-  economy-discord-bot:
+  discord-economy-bot:
     build: .
     image: discord-economy-bot
     container_name: discord-economy-bot
