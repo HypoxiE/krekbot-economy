@@ -20,6 +20,7 @@ from libs.tokens_formatter import TOKENS
 
 import CoreFun
 
+logging = CoreFun.logging
 
 async def main():
 	stop_event = asyncio.Event()
@@ -66,9 +67,9 @@ async def main():
 		await asyncio.gather(*bot_tasks, monitor_task)
 
 	except KeyboardInterrupt:
-		print(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: Боты остановлены по запросу пользователя")
+		logging.info("Боты остановлены по запросу пользователя")
 	except Exception as e:
-		print(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: Произошла критическая ошибка: {e}")
+		logging.exception(f"Произошла критическая ошибка")
 	finally:
 
 		# Остановка всех ботов
