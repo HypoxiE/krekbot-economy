@@ -33,7 +33,10 @@ from sqlalchemy.schema import CreateTable
 import gspread
 from google.oauth2.service_account import Credentials
 
+logging.basicConfig(level=logging.INFO)
+
 class AnyBots(commands.Bot):
+	logging = logging
 	'''
 	
 	
