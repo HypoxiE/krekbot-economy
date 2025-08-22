@@ -1,13 +1,12 @@
 venv/
-nb_venv/
-pc_venv/
 
 docs/
 
 __pycache__/
 *.pyc
 
-backups/
+*.db
+*.sql
 
 .env
 secrets/
