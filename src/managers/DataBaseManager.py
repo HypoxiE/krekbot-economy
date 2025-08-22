@@ -1,3 +1,4 @@
+import logging
 import disnake
 from disnake.ext import commands
 from disnake.ext import tasks
@@ -91,7 +92,7 @@ class DatabaseManager:
 				print(f"{datetime.datetime.now():%H:%M:%S %d-%m-%Y} :: SQL backup of '{db_name}' created.")
 			return backup_file
 		except subprocess.CalledProcessError as e:
-			print(f"{datetime.datetime.now():%H:%M:%S %d-%m-%Y} :: Backup failed: {e}")
+			logging.exception(f"{datetime.datetime.now():%H:%M:%S %d-%m-%Y} :: Backup failed: {e}")
 			return f"{datetime.datetime.now():%H:%M:%S %d-%m-%Y} :: Backup failed: {e}"
 		finally:
 			await conn.close()

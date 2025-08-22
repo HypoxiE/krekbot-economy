@@ -702,7 +702,7 @@ class AdminBot(AnyBots):
 						await self.LevelRolesGiver(member, self.CalculateLevel(period_messages, period_voice_activity))
 				
 		except Exception as e:
-			logging.error(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: err VoiceXpAdder: {e}")
+			logging.exception(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: err VoiceXpAdder: {e}")
 
 	@tasks.loop(seconds=3600)
 	async def CheckDataBase(self):
@@ -749,7 +749,7 @@ class AdminBot(AnyBots):
 				await backups_channel.send(content=f"Бэкап бд за {datetime.datetime.now()}:", file=disnake.File(backup_file))
 
 		except Exception as e:
-			logging.error(f"err CheckDataBase: {e}")
+			logging.exception(f"err CheckDataBase: {e}")
 
 async def init_db():
 	DataBaseEngine = create_async_engine(
