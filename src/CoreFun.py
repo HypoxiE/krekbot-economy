@@ -1,4 +1,6 @@
 import logging
+logging.basicConfig(level=logging.INFO, force=True, format="%(asctime)s %(name)s %(levelname)s: %(message)s", datefmt="%d-%m-%Y %H:%M:%S")
+
 import typing
 import disnake
 from disnake.ext import commands
@@ -33,10 +35,10 @@ from sqlalchemy.schema import CreateTable
 import gspread
 from google.oauth2.service_account import Credentials
 
-logging.basicConfig(level=logging.INFO, force=True, format="%(asctime)s %(name)s %(levelname)s: %(message)s", datefmt="%H:%M:%S")
+logger = logging.getLogger(__name__)
 
 class AnyBots(commands.Bot):
-	logging = logging
+	logger = logging.getLogger(__name__)
 	'''
 	
 	
@@ -57,7 +59,7 @@ class AnyBots(commands.Bot):
 
 	async def on_ready(self, inherited = False):
 		self.krekchat = await self.fetch_guild(constants["krekchat"])
-		logging.info(self.krekchat.name)
+		self.logger.info(self.krekchat.name)
 		self.sponsors = [disnake.utils.get(self.krekchat.roles, id=i) for i in constants["sponsors"]]
 		self.mutes = [disnake.utils.get(self.krekchat.roles, id=i) for i in constants["mutes"]]
 		self.ban_role = disnake.utils.get(self.krekchat.roles, id=constants["ban_role"])
@@ -75,7 +77,7 @@ class AnyBots(commands.Bot):
 		await self.change_presence(status=disnake.Status.online, activity=disnake.Game("Работаю"))
 
 		if not inherited:
-			logging.info(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}::  KrekFunBot activated")
+			self.logger.info(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}::  KrekFunBot activated")
 
 	async def RimagochiUserUpdate(self, member, session = None):
 		if session is None:
@@ -366,7 +368,7 @@ class AdminBot(AnyBots):
 		else:
 			self.UpdatingTournamentData.start() # Удалить обязательно!!!
 
-		logging.info(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: KrekFunLoopsBot activated")
+		self.logger.info(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: KrekFunLoopsBot activated")
 
 	async def BotOff(self):
 		self.VoiceXpAdder.cancel()
@@ -379,7 +381,7 @@ class AdminBot(AnyBots):
 		if self.stop_event.is_set():
 			pass
 		else:
-			logging.error(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: Соединение с дискордом разорвано")
+			self.logger.error(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: Соединение с дискордом разорвано")
 			await self.BotOff()
 
 	async def check_bt_channel(self):
@@ -461,7 +463,7 @@ class AdminBot(AnyBots):
 					except json.JSONDecodeError as e:
 						await message.add_reaction("❎")
 					except Exception as exc:
-						logging.error(f"{data} {exc}")
+						self.logger.error(f"{data} {exc}")
 				if msg_stopflag:
 					stopflag = True
 					break
@@ -702,7 +704,7 @@ class AdminBot(AnyBots):
 						await self.LevelRolesGiver(member, self.CalculateLevel(period_messages, period_voice_activity))
 				
 		except Exception as e:
-			logging.exception(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: err VoiceXpAdder: {e}")
+			self.logger.exception(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: err VoiceXpAdder: {e}")
 
 	@tasks.loop(seconds=3600)
 	async def CheckDataBase(self):
@@ -749,7 +751,7 @@ class AdminBot(AnyBots):
 				await backups_channel.send(content=f"Бэкап бд за {datetime.datetime.now()}:", file=disnake.File(backup_file))
 
 		except Exception as e:
-			logging.exception(f"err CheckDataBase: {e}")
+			self.logger.exception(f"err CheckDataBase: {e}")
 
 async def init_db():
 	DataBaseEngine = create_async_engine(
@@ -769,19 +771,19 @@ async def run_bot(bot, token, stop_event):
 	try:
 		await bot.start(token)
 	except Exception as e:
-		logging.info(f"Бот {bot.user.name if hasattr(bot, 'user') else 'Unknown'} упал с ошибкой: {e}")
+		logger.info(f"Бот {bot.user.name if hasattr(bot, 'user') else 'Unknown'} упал с ошибкой: {e}")
 		stop_event.set()  # Сигнализируем об остановке
 
 async def monitor_stop(stop_event, bots):
 	await stop_event.wait()
-	logging.info(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: Получен сигнал остановки, завершаю всех ботов...")
+	logger.info(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: Получен сигнал остановки, завершаю всех ботов...")
 
 	for bot in bots:
 		if not bot.is_closed():
 			try:
 				await bot.close()
 			except Exception as e:
-				logging.error(f"Ошибка при закрытии бота: {e}")
+				logger.error(f"Ошибка при закрытии бота: {e}")
 
 	await asyncio.sleep(0.1)
 
@@ -818,9 +820,9 @@ async def main():
 		await asyncio.gather(*bot_tasks, monitor_task)
 
 	except KeyboardInterrupt:
-		logging.info("Боты остановлены по запросу пользователя")
+		logger.info("Боты остановлены по запросу пользователя")
 	except Exception as e:
-		logging.exception(f"Произошла критическая ошибка")
+		logger.exception(f"Произошла критическая ошибка")
 	finally:
 		if admin_bot is not None:
 			await admin_bot.BotOff()

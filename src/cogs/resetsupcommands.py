@@ -1,12 +1,12 @@
 import disnake
 from disnake.ext import commands
 
-def setup(bot: commands.Bot):
+def setup(bot):
     bot.add_cog(ExampleCog(bot))
-    print("ExampleCog загружен!")
+    bot.logger.info("ExampleCog загружен!")
 
 class ExampleCog(commands.Cog):
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot):
         self.bot = bot
 
     @commands.slash_command(name="ping", description="Проверка бота на работоспособность")

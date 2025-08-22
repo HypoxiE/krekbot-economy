@@ -34,7 +34,7 @@ class MainRimagochiModule(commands.Cog):
 
 	@commands.Cog.listener()
 	async def on_ready(self):
-		self.client.logging.info(f'KrekFunBot rimagochi module activated')
+		self.client.logger.info(f'KrekFunBot rimagochi module activated')
 		krekchat = await self.client.fetch_guild(constants["krekchat"])
 		self.me = disnake.utils.get(krekchat.roles, id=constants["me"])
 

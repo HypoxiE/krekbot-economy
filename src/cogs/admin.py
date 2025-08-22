@@ -30,7 +30,7 @@ class MainAdminModule(commands.Cog):
 
 	@commands.Cog.listener()
 	async def on_ready(self):
-		self.client.logging.info(f'KrekFunBot admin module activated')
+		self.client.logger.info(f'KrekFunBot admin module activated')
 		self.krekchat = await self.client.fetch_guild(constants["krekchat"])
 		self.me = disnake.utils.get(self.krekchat.roles, id=constants["me"])
 		

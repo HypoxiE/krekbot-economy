@@ -28,7 +28,7 @@ class MainEconomyModule(commands.Cog):
 		self.krekchat = await self.client.fetch_guild(constants["krekchat"])
 		self.sponsors = [disnake.utils.get(self.krekchat.roles, id=i) for i in constants["sponsors"]]
 		self.me = disnake.utils.get(self.krekchat.roles, id=constants["me"])
-		self.client.logging.info(f'KrekFunBot economy module activated')
+		self.client.logger.info(f'KrekFunBot economy module activated')
 
 	@commands.slash_command(name = "статистика", description="Статистика отображает все данные о пользователе")
 	async def UserStatistic(self, ctx: disnake.AppCmdInter,

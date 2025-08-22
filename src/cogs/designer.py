@@ -32,7 +32,7 @@ class MainDesignerModule(commands.Cog):
 		self.krekchat = await self.client.fetch_guild(constants["krekchat"])
 		self.sponsors = [disnake.utils.get(self.krekchat.roles, id=i) for i in constants["sponsors"]]
 		self.me = disnake.utils.get(self.krekchat.roles, id=constants["me"])
-		self.client.logging.info(f'KrekFunBot designer module activated')
+		self.client.logger.info(f'KrekFunBot designer module activated')
 
 	@commands.slash_command(name = "профиль", description="Ваш профиль на сервере")
 	async def Profile(self, ctx: disnake.AppCmdInter,
