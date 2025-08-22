@@ -753,14 +753,14 @@ class AdminBot(AnyBots):
 		except Exception as e:
 			self.logger.exception(f"err CheckDataBase: {e}")
 
-async def init_db():
+async def init_db(debug = False):
 	DataBaseEngine = create_async_engine(
 		config.Settings().DB_URL,
 		pool_size=20,
 		max_overflow=10,
 		pool_recycle=300,
 		pool_pre_ping=True,
-		#echo=True,
+		echo=debug,
 	)
 	async with DataBaseEngine.begin() as conn:
 		await conn.run_sync(DataBaseClasses['base'].metadata.create_all)

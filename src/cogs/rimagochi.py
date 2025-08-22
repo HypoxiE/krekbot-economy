@@ -65,6 +65,8 @@ class MainRimagochiModule(commands.Cog):
 					err_embed = self.client.ErrEmbed(title = "Ошибка профиля", thumbnail = member.avatar, description = f"Пользователь не найден")
 					await ctx.response.send_message(embed = err_embed)
 					return
+				
+		async with self.DataBaseManager.session() as session:
 			async with session.begin():
 				async with self.DataBaseManager.models['rimagochi_users'] as rimagochi_users_model:
 					stmt = self.DataBaseManager.select(rimagochi_users_model).options(

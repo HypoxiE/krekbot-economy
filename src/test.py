@@ -1,4 +1,5 @@
 
+import logging
 import disnake
 from disnake.ext import commands
 from disnake.ext import tasks
@@ -19,8 +20,8 @@ from constants.global_constants import *
 from libs.tokens_formatter import TOKENS
 
 import CoreFun
-
-logger = CoreFun.logger
+CoreFun.logging.basicConfig(level=logging.INFO, force=True, format="%(asctime)s %(name)s %(levelname)s: %(message)s", datefmt="%d-%m-%Y %H:%M:%S")
+logger = CoreFun.logging.getLogger(__name__)
 
 async def main():
 	stop_event = asyncio.Event()
@@ -29,7 +30,7 @@ async def main():
 	all_bots = []
 
 	try:
-		DataBase = await CoreFun.init_db()
+		DataBase = await CoreFun.init_db(debug=True)
 		#await CoreFun.db_migration(DataBase)
 
 		'''
@@ -55,8 +56,8 @@ async def main():
 		#sup_bot.load_extension("cogs.economy")
 		#sup_bot.load_extension("cogs.designer")
 		#sup_bot.load_extension("cogs.roles")
-		sup_bot.load_extension("cogs.admin")
-		#sup_bot.load_extension("cogs.rimagochi")
+		#sup_bot.load_extension("cogs.admin")
+		sup_bot.load_extension("cogs.rimagochi")
 
 		# Запуск монитора остановки и ботов
 		monitor_task = asyncio.create_task(CoreFun.monitor_stop(stop_event, all_bots))
