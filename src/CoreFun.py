@@ -790,18 +790,15 @@ async def main():
 	DataBase = None
 	all_bots = []
 	admin_bot = None
-	logging.info("1")
 	try:
 
 		DataBase = await init_db()
-		logging.info("2")
 
 		# Инициализация ботов
 		admin_bot = AdminBot(DataBase, stop_event)
 		economy_bot = AnyBots(DataBase)
 		rimagochi_bot = AnyBots(DataBase)
 		all_bots = [economy_bot, admin_bot, rimagochi_bot]
-		logging.info("3")
 
 		# Загрузка когов
 		economy_bot.load_extension("cogs.economy")
@@ -809,7 +806,6 @@ async def main():
 		economy_bot.load_extension("cogs.designer")
 		admin_bot.load_extension("cogs.admin")
 		rimagochi_bot.load_extension("cogs.rimagochi")
-		logging.info("4")
 
 		# Запуск монитора остановки и ботов
 		monitor_task = asyncio.create_task(monitor_stop(stop_event, all_bots))
