@@ -307,16 +307,17 @@ class MainEconomyModule(commands.Cog):
 						  description="Хотите иметь очень много крошек? Тогда, эта команда точно не для вас)")
 	async def CasinoSlash(self, ctx: disnake.AppCmdInter,
 						  count: commands.Range[int, 1, ...] = commands.Param(description="Сколько крошек хотите поставить на кон?", name="ставка"),
-						  possibility: commands.Range[int, 1, 99] = commands.Param(
+						  possibility_input: commands.Range[int, 1, 99] = commands.Param(
 							  description="Шанс на победу. Чем выше, тем меньше крошек вы получите после победы(целое число от 1 до 99)",
 							  name="шанс", default=50),
 						  quantity: int = commands.Param(
 							  description=f"Количество круток(целое число от 1 до {constants['casinospinslimit']}({constants['casinospinslimit']*2} для спонсоров))",
 							  name="количество", default=1)):
+		possibility = float(possibility_input)
 		await ctx.response.defer()
 
 		err_embed = self.client.ErrEmbed(title="Ошибка казино")
-		if isinstance(ctx.author, disnake.User):
+		if isinstance(ctx.author, disnake.User) or ctx.guild is None:
 			err_embed.description = "Эта команда не работает в личных сообщениях!"
 			await ctx.edit_original_message(embed=err_embed)
 			return
@@ -369,7 +370,7 @@ class MainEconomyModule(commands.Cog):
 					err_embed.description = f'Шанс должен быть от 1% до 99%'
 					await ctx.edit_original_message(embed=err_embed)
 					return
-				possibility = possibility // 100
+				possibility = possibility / 100
 				if count <= 0:
 					err_embed.description = f'Ставка должна быть больше 0'
 					await ctx.edit_original_message(embed=err_embed)
