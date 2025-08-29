@@ -649,7 +649,7 @@ class AdminBot(AnyBots):
 		embeds.append(embed)
 
 		row_num = 1
-		for stack in fdata[:5]:
+		for stack in fdata[:4]:
 			embed = disnake.Embed(title = f"{stack.name}", description = "ᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠ", colour=color)
 			
 			for row in stack:
