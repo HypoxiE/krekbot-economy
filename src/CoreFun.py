@@ -550,14 +550,14 @@ class AdminBot(AnyBots):
 		class RowData:
 			def __init__(self, row):
 				if isinstance(row, RowData):
-					row = row.raw_data
+					row = row.row_data
 				self.points = int(row[-2])
 				self.discord_id = int(row[5]) if row[5] else None
 				self.nick = row[7]
 				self.links = row[8]
 				self.verified = row[-4]
 				self.cost = int(row[-5]) if row[-5] else 0
-				self.raw_data = row
+				self.row_data = row
 
 			def __lt__(self, other):
 				return (self.points, self.cost) < (other.points, other.cost)
@@ -635,11 +635,16 @@ class AdminBot(AnyBots):
 			def __getitem__(self, key):
 				return self.data_parts[key]
 			
+		names = []
+		r_data = []
+		for i in data[2:]:
+			row = RowData(i)
+			if (not row.nick.lower in names) and row.points > 0:
+				names.append(row.nick.lower)
+				r_data.append(row)
 
-		data = [RowData(i) for i in data[2:]]
-
-		data = [i for i in sorted(data, reverse = True) if i.points > 0]
-		fdata = Stacks(stack_size = 5, data = data)
+		r_data = sorted(r_data, reverse = True)
+		fdata = Stacks(stack_size = 5, data = r_data)
 
 		color = 0x211125
 
