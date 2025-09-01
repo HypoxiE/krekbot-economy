@@ -637,13 +637,12 @@ class AdminBot(AnyBots):
 			
 		names = []
 		r_data = []
-		for i in data[2:]:
+		for i in sorted(data[2:], key = lambda a: RowData(a), reverse = True):
 			row = RowData(i)
 			if (not row.nick in names) and row.points > 0:
 				names.append(row.nick)
 				r_data.append(row)
 
-		r_data = sorted(r_data, reverse = True)
 		fdata = Stacks(stack_size = 5, data = r_data)
 
 		color = 0x211125
