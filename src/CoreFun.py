@@ -639,8 +639,8 @@ class AdminBot(AnyBots):
 		r_data = []
 		for i in data[2:]:
 			row = RowData(i)
-			if (not str(row.nick.lower) in names) and row.points > 0:
-				names.append(str(row.nick.lower))
+			if (not row.nick in names) and row.points > 0:
+				names.append(row.nick)
 				r_data.append(row)
 
 		r_data = sorted(r_data, reverse = True)
