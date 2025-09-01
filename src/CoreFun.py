@@ -639,10 +639,9 @@ class AdminBot(AnyBots):
 		r_data = []
 		for i in data[2:]:
 			row = RowData(i)
-			if (not row.nick.lower in names) and row.points > 0:
-				names.append(row.nick.lower)
+			if (not str(row.nick.lower) in names) and row.points > 0:
+				names.append(str(row.nick.lower))
 				r_data.append(row)
-			self.logger.info(names)
 
 		r_data = sorted(r_data, reverse = True)
 		fdata = Stacks(stack_size = 5, data = r_data)
