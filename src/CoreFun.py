@@ -32,9 +32,6 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.schema import CreateTable
 
-import gspread
-from google.oauth2.service_account import Credentials
-
 logger = logging.getLogger(__name__)
 
 class AnyBots(commands.Bot):
@@ -360,20 +357,15 @@ class AdminBot(AnyBots):
 		if self.task_start:
 			self.VoiceXpAdder.cancel()
 			self.CheckDataBase.cancel()
-			self.UpdatingTournamentData.cancel()
 
 			self.VoiceXpAdder.start()
 			self.CheckDataBase.start()
-			self.UpdatingTournamentData.start()
-		else:
-			self.UpdatingTournamentData.start() # Удалить обязательно!!!
 
 		self.logger.info(f"{datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')}:: KrekFunLoopsBot activated")
 
 	async def BotOff(self):
 		self.VoiceXpAdder.cancel()
 		self.CheckDataBase.cancel()
-		self.UpdatingTournamentData.cancel()
 
 		self.stop_event.set()
 
@@ -513,158 +505,6 @@ class AdminBot(AnyBots):
 						period_messages, period_voice_activity = user.period_messages + 1, user.period_voice_activity
 
 		await self.LevelRolesGiver(message.author, self.CalculateLevel(period_messages, period_voice_activity))
-
-	_url_cache = {}
-	@tasks.loop(seconds=3600)
-	async def UpdatingTournamentData(self):
-		krekchat = await self.fetch_guild(self.krekchat.id)
-		tournament_channel = await krekchat.fetch_channel(1396785366882582538)
-		if not isinstance(tournament_channel, disnake.TextChannel):
-			raise
-		webhooks = await tournament_channel.webhooks()
-		webhook = webhooks[0]
-
-		if not hasattr(self, 'tournament_table_client'):
-			SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-			creds = Credentials.from_service_account_file("secrets/krekbottable-9a40985c56e2.json", scopes=SCOPES)
-			self.tournament_table_client = gspread.authorize(creds)
-
-		async def shorten_url_tinyurl(url: str) -> str:
-			if not hasattr(self, '_url_cache'):
-				self._url_cache = {}
-
-			if url in self._url_cache:
-				return self._url_cache[url]
-
-			async with aiohttp.ClientSession() as session:
-				async with session.get("https://tinyurl.com/api-create.php", params={"url": url}) as resp:
-					resp.raise_for_status()
-					short_url = await resp.text()
-					self._url_cache[url] = short_url
-					return short_url
-		
-		spreadsheet = self.tournament_table_client.open_by_key("16t28W1nlexAS-J26Mk18EgtPUX3344XdB18c5glA3Fg")
-		sheet = spreadsheet.worksheet("Ответы на форму")
-		data = sheet.get_all_values()
-
-		class RowData:
-			def __init__(self, row):
-				if isinstance(row, RowData):
-					row = row.row_data
-				self.points = int(row[-2])
-				self.discord_id = int(row[5]) if row[5] else None
-				self.nick = row[7]
-				self.links = row[8]
-				self.verified = row[-4]
-				self.cost = int(row[-5]) if row[-5] else 0
-				self.row_data = row
-
-			def __lt__(self, other):
-				return (self.points, self.cost) < (other.points, other.cost)
-
-			def __le__(self, other):
-				return (self.points, self.cost) <= (other.points, other.cost)
-
-			def __gt__(self, other):
-				return (self.points, self.cost) > (other.points, other.cost)
-
-			def __ge__(self, other):
-				return (self.points, self.cost) >= (other.points, other.cost)
-
-			async def to_str(self, num: int | None = None):
-				try:
-					member = await krekchat.fetch_member(int(row.discord_id))
-				except:
-					member = None
-
-				if num is not None:
-					result = f"**{num}) "
-				else:
-					result = f"**-"
-					num = -2
-
-				result += f"[{self.nick}]("
-				result += f"https://docs.google.com/spreadsheets/d/1QkaNYezumeb-QJHSZ3x1vIi5ktf0ooDklYkrP6xSMZc/edit?gid=0&range=A{num+2}"
-				result += ")"
-				if member is None:
-					result += "**\n"
-				else:
-					result += f" ({member.mention})**\n"
-
-				result += f"`{self.points} очков`\n"
-
-				saved_links = [("youtu.be", "YouTube"), ("youtube.com", "YouTube"), ("twitch.tv", "Twitch")]
-				result += f"Стримы: "
-
-				links = []
-				for link in self.links.split():
-					for saved_link in saved_links:
-						if saved_link[0] in link:
-							links.append(f"[{saved_link[1]}]({await shorten_url_tinyurl(link)})")
-							break
-					else:
-						links.append(f"{link}")
-
-				result += ", ".join(links) + "\n"
-				result += f"Проверено модерацией: " + ("✅" if self.verified == "Прошло модерацию" else "❎") 
-				return result
-
-		class Stack:
-			def __init__(self, name, data):
-				self.name = name
-				self.data_stack = []
-
-				for row in data:
-					if isinstance(row, RowData):
-						self.data_stack.append(RowData(row))
-					else:
-						self.data_stack.append(row)
-
-			def __iter__(self):
-				return iter(self.data_stack)
-
-		class Stacks:
-			def __init__(self, stack_size, data):
-				self.data_parts = []
-				for i in range(1, (len(data)+(stack_size-1))//stack_size+1):
-					self.data_parts.append(Stack(name = f"Топ {i*stack_size}" , data = data[stack_size*(i-1):stack_size*i]))
-
-			def __iter__(self):
-				return iter(self.data_parts)
-
-			def __getitem__(self, key):
-				return self.data_parts[key]
-			
-		names = []
-		r_data = []
-		for i in sorted(data[2:], key = lambda a: RowData(a), reverse = True):
-			row = RowData(i)
-			if (not row.nick in names) and row.points > 0:
-				names.append(row.nick)
-				r_data.append(row)
-
-		fdata = Stacks(stack_size = 5, data = r_data)
-
-		color = 0x211125
-
-		embeds = []
-
-		embed = disnake.Embed(description = "[Оригинал таблицы](https://docs.google.com/spreadsheets/d/1QkaNYezumeb-QJHSZ3x1vIi5ktf0ooDklYkrP6xSMZc/edit?usp=sharing)\nᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠ\n# Таблица лидеров", colour=color)
-		embeds.append(embed)
-
-		row_num = 1
-		for stack in fdata[:4]:
-			embed = disnake.Embed(title = f"{stack.name}", description = "ᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠ", colour=color)
-			
-			for row in stack:
-				embed.add_field(name = "", value = f"{await row.to_str(num = row_num)}", inline = False)
-				row_num += 1
-			embeds.append(embed)
-
-		embed = disnake.Embed(description = "**Эта таблица обновляется каждый час и может содержать только топ-20 участников.\n\nБолее детальную и актуальную информацию можете найти в [оригинальной таблице](https://docs.google.com/spreadsheets/d/1QkaNYezumeb-QJHSZ3x1vIi5ktf0ooDklYkrP6xSMZc/edit?usp=sharing).**", colour=color)
-		embeds.append(embed)
-
-		await webhook.edit_message(1405594708016889909, content = "", embeds = embeds)
 
 	@tasks.loop(seconds=60)
 	async def VoiceXpAdder(self):
