@@ -1,4 +1,4 @@
-FROM python:3
+FROM python:3.13-slim
 
 WORKDIR /usr/src/economy-bot
 RUN apt update && apt install -y postgresql-client
