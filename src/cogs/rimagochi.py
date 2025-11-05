@@ -62,7 +62,7 @@ class MainRimagochiModule(commands.Cog):
 			else:
 				user = await session.get(self.DataBaseManager.models['rimagochi_users'].m, member.id)
 				if user is None:
-					err_embed = self.client.ErrEmbed(title = "Ошибка профиля", thumbnail = member.avatar, description = f"Пользователь не найден")
+					err_embed = self.client.ErrEmbed(title = "Ошибка профиля", description = f"Пользователь не найден")
 					await ctx.response.send_message(embed = err_embed)
 					return
 				
@@ -79,12 +79,12 @@ class MainRimagochiModule(commands.Cog):
 
 					if not isinstance(ctx.author, disnake.Member):
 						if (member != ctx.author and user.settings['hide_the_animals']):
-							err_embed = self.client.ErrEmbed(title = "Ошибка профиля", thumbnail = member.avatar, description = f"Этот пользователь скрывает свои данные")
+							err_embed = self.client.ErrEmbed(title = "Ошибка профиля", description = f"Этот пользователь скрывает свои данные")
 							await ctx.response.send_message(embed = err_embed)
 							return
 					else:
 						if (member != ctx.author and user.settings['hide_the_animals']) and (not self.client.me in ctx.author.roles):
-							err_embed = self.client.ErrEmbed(title = "Ошибка профиля", thumbnail = member.avatar, description = f"Этот пользователь скрывает свои данные")
+							err_embed = self.client.ErrEmbed(title = "Ошибка профиля", description = f"Этот пользователь скрывает свои данные")
 							await ctx.response.send_message(embed = err_embed)
 							return
 					await ctx.response.defer(ephemeral = user.settings['hide_the_animals'])
@@ -550,7 +550,7 @@ class MainRimagochiModule(commands.Cog):
 				user.animals.sort(key=lambda animal: animal.creation_time, reverse=True)
 
 				await ctx.response.defer(ephemeral = user.settings['hide_the_animals'])
-				err_embed = self.client.ErrEmbed(err_func = ctx.edit_original_message, title = "Ошибка профиля", thumbnail = member.avatar)
+				err_embed = self.client.ErrEmbed(err_func = ctx.edit_original_message, title = "Ошибка профиля")
 
 				if user.settings['hide_the_animals'] and member != ctx.author and (isinstance(ctx.author, disnake.User) or not self.client.me in ctx.author.roles):
 					await err_embed.send(f"Пользователь {member.mention} скрыл свой профиль")
