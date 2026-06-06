@@ -8,6 +8,7 @@ from disnake.ext import tasks
 import requests
 import numpy as np
 import aiohttp
+from aiohttp_socks import ProxyConnector
 import asyncio
 import sys
 import os
@@ -44,9 +45,12 @@ class AnyBots(commands.Bot):
 
 	'''
 	def __init__(self, DataBaseManager):
+		self.connector = ProxyConnector.from_url('socks5://v2raya:20170')
+		self.session = aiohttp.ClientSession(connector=self.connector, trust_env=True)
 		super().__init__(
 			command_prefix="=",
-			intents=disnake.Intents.all()
+			intents=disnake.Intents.all(),
+			connector=self.connector
 		)
 		self.DataBaseManager = DataBaseManager
 		self.costrolecreate = constants['costrolecreate']
@@ -210,6 +214,11 @@ class AnyBots(commands.Bot):
 		except:
 			pass
 
+	async def close(self):
+		await self.session.close()
+		await self.connector.close()
+		await super().close()
+
 	def HexToRgb(self, value):
 		value = value.lstrip('#')
 		lv = len(value)
@@ -311,6 +320,8 @@ class AnyBots(commands.Bot):
 				time_units[unit] += value
 
 		return FormatedTime(time_units)
+
+        
 
 	class ErrEmbed(disnake.Embed):
 		def __init__(self, err_func: typing.Callable[..., typing.Awaitable[None]] | None = None, err_func_kwargs: dict | None = None, **kwargs):
